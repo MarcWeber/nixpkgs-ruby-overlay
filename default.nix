@@ -92,7 +92,7 @@ let
                       "<"  = lessThan x 0;
                       ">=" = x == 0 || lessThan 0 x;
                       "<=" = x == 0 || lessThan x 0;
-                      "~>" = lessThan 0 x && lessThan 0 (compareVersions pkg.bump v);
+                      "~>" = (lessThan 0 x || x == 0) && lessThan 0 (compareVersions pkg.bump v);
                     };
                 in getAttr op fs;
           failing = lib.filter (x: !(match x)) constraints;
@@ -123,7 +123,10 @@ let
     inherit ruby_defaults;
 
     rubyPackages18 = names:
-      let defaults = ruby_defaults {inherit (pkgs) ruby rubygems;};
+      let defaults = ruby_defaults {
+        inherit (pkgs) rubygems;
+        ruby = pkgs.ruby18;
+      };
       in resolveRubyPkgDependencies {
         inherit (defaults) rubyPackages patches rubyDerivation;
         inherit names;
@@ -151,6 +154,7 @@ let
           "mime_types"
           "sup" # curses is distributed with ruby
           "xrefresh-server"
+          "rspec"
     ];
 
     inherit resolveRubyPkgDependencies;
