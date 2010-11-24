@@ -1,8 +1,7 @@
-{writeScript, pkgs}:
+{writeScript, pkgs, ruby, rubygems}:
 
 let inherit (pkgs) fetchurl stdenv;
     inherit (pkgs.lib) mergeAttrsByFuncDefaults optional;
-    inherit (pkgs) rubygems ruby;
     inherit (builtins) hasAttr getAttr;
 
 in rec {
@@ -19,6 +18,7 @@ in rec {
 
   # these settings are merged into the automatically generated settings
   # either the nameNoVersion or name must match
+  # does it make a difference whether you use ruby 1.8 or ruby 1.9 ? Probably yes
   patches = {
     sup = {
       additionalRubyDependencies = ["ncursesw"];
@@ -39,18 +39,18 @@ in rec {
 
     ffi = {
       postUnpack = "onetuh";
-      buildInputs = [ pkgs.rake ];
+      additionalRubyDependencies = [ "rake" ];
       buildFlags=["--with-ffi-dir=${pkgs.libffi}"];
       NIX_POST_EXTRACT_FILES_HOOK = patchUsrBinEnv;
     };
 
-    xrefresh_server =
+    "xrefresh-server" =
     let patch = fetchurl {
         url = "http://mawercer.de/~nix/xrefresh.diff.gz";
         sha256 = "1f7bnmn1pgkmkml0ms15m5lx880hq2sxy7vsddb3sbzm7n1yyicq";
       };
     in {
-      additionalRubyDependencies = [ "rb_inotify" ];
+      additionalRubyDependencies = [ "rb-inotify" ];
 
       # monitor implementation for Linux
       postInstall = ''
@@ -59,8 +59,9 @@ in rec {
       '';
     };
 
-    xapian_full = {
-      buildInputs = [ pkgs.rake pkgs.zlib pkgs.libuuid ];
+    "xapian-full" = {
+      additionalRubyDependencies = [ "rake" ];
+      buildInputs = [ pkgs.zlib pkgs.libuuid ];
     };
   };
 

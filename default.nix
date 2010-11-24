@@ -41,11 +41,14 @@ let
   lib = pkgs.lib;
   getConfig = pkgs.getConfig;
 
-  inherit (builtins) attrNames head tail compareVersions lessThan filter hasAttr getAttr;
+  inherit (builtins) attrNames head tail compareVersions lessThan filter hasAttr getAttr toXML;
 
   inherit (lib) attrSingleton mergeAttrsByFuncDefaults optional listToAttrs;
 
-  ruby_defaults = pkgs.callPackage pkgs/defaults.nix { inherit pkgs; };
+  ruby_defaults = {ruby, rubygems}:
+    pkgs.callPackage pkgs/defaults.nix {
+      inherit pkgs ruby rubygems;
+    };
 
   # roselves dependencies automatically ensuring that only one version of a
   # library is present in the dependency chain by ignoring all "older" versions
@@ -89,12 +92,12 @@ let
                       "<"  = lessThan x 0;
                       ">=" = x == 0 || lessThan 0 x;
                       "<=" = x == 0 || lessThan x 0;
-                      "~>" = lessThan 0 x && lessThan (compareVersions pkg.bump v) 0;
+                      "~>" = lessThan 0 x && lessThan 0 (compareVersions pkg.bump v);
                     };
                 in getAttr op fs;
           failing = lib.filter (x: !(match x)) constraints;
 
-          in if failing ==[] then pkg else (throw "couldn't satisfy all contstraints of depndency ${name} reqiured by ${depending}: ${builtins.toXML failing}");
+          in if failing ==[] then pkg else (throw "couldn't satisfy all contstraints of depndency ${name} reqiured by ${depending}: ${toXML failing}");
 
         makeDerivation =
               making: # list of names being visited to prevent cyclic dependencies
@@ -109,7 +112,7 @@ let
               making_new = making ++ [pkg_descr.name];
               deps_derivations = map (x: makeDerivation making_new (pkgByConstraints pkg_descr.name x)) ruby_deps;
 
-          in if  lib.elem pkg_descr.name making then throw "cyclic dependency ${builtins.toXML making} -> ${pkg_descr.name}"
+          in if  lib.elem pkg_descr.name making then throw "cyclic dependency ${toXML making} -> ${pkg_descr.name}"
               else rubyDerivation (merge [ patched_descr { propagatedBuildInputs = deps_derivations; } ]);
 
     in listToAttrs (map (name: { inherit name; value = makeDerivation [] (pkgByName "<user>" name); } ) names)
@@ -119,19 +122,21 @@ let
 
     inherit ruby_defaults;
 
-    rubyPackages = names: resolveRubyPkgDependencies {
-      inherit (ruby_defaults) rubyPackages patches rubyDerivation;
-      inherit names;
-    };
+    rubyPackages18 = names:
+      let defaults = ruby_defaults {inherit (pkgs) ruby rubygems;};
+      in resolveRubyPkgDependencies {
+        inherit (defaults) rubyPackages patches rubyDerivation;
+        inherit names;
+      };
 
     # packages known to work:
-    tested = rubyPackages ["nokogiri" "rake" "escape"
+    tested18 = rubyPackages18 [
+          "nokogiri" "rake" "escape"
           "git"
           "hoe"
           "rubyforge"
           "json_pure"
           "chronic"
-          "sup"
           "rubygems_update"
           "jeweler"
           "rake"
@@ -143,12 +148,10 @@ let
           "rmail"
           "highline"
           "net_ssh"
-          "xrefresh_server"
           "mime_types"
-      ];
-
-    # xapian
-    # xapianBindings
+          "sup" # curses is distributed with ruby
+          "xrefresh-server"
+    ];
 
     inherit resolveRubyPkgDependencies;
 
