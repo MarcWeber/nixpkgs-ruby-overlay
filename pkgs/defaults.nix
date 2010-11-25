@@ -1,6 +1,6 @@
 {writeScript, pkgs, ruby, rubygems}:
 
-let inherit (pkgs) fetchurl stdenv;
+let inherit (pkgs) fetchurl stdenv lib;
     inherit (pkgs.lib) mergeAttrsByFuncDefaults optional;
     inherit (builtins) hasAttr getAttr;
 
@@ -22,7 +22,7 @@ in rec {
   patches = {
     sup = {
       additionalRubyDependencies = ["ncursesw"];
-      buildInputs = [ pkgs.ncurses pkgs.xapianBindings ];
+      buildInputs = [ pkgs.xapianBindings ];
     };
     sqlite3_ruby = { propagatedBuildInputs = [ pkgs.sqlite ]; };
     # rails = {
@@ -71,7 +71,7 @@ in rec {
         completeArgs = (mergeAttrsByFuncDefaults
         ([
           {
-            buildInputs = [rubygems ruby pkgs.makeWrapper];
+            buildInputs = [ruby pkgs.makeWrapper] ++ lib.optional (rubygems != null) rubygems;
             unpackPhase = ":";
             configurePhase=":";
             bulidPhase=":";
@@ -106,7 +106,7 @@ in rec {
 
               for prog in $out/bin/*; do
                 wrapProgram "$prog" \
-                  --prefix RUBYLIB : "$RUBYLIB":${rubygems}/lib \
+                  --prefix RUBYLIB : "$RUBYLIB"${ if rubygems == null then "" else ":${rubygems}/lib" } \
                   --prefix GEM_PATH : "$GEM_PATH" \
                   --set RUBYOPT 'rubygems'
               done

@@ -122,6 +122,8 @@ let
 
     inherit ruby_defaults;
 
+    ### RUBY 1.8
+
     rubyPackages18 = names:
       let defaults = ruby_defaults {
         inherit (pkgs) rubygems;
@@ -138,9 +140,9 @@ let
           "git"
           "hoe"
           "rubyforge"
-          "json_pure"
+          "json-pure"
           "chronic"
-          "rubygems_update"
+          "rubygems-update"
           "jeweler"
           "rake"
           "ncursesw"
@@ -150,11 +152,51 @@ let
           "lockfile"
           "rmail"
           "highline"
-          "net_ssh"
-          "mime_types"
+          "net-ssh"
+          "mime-types"
           "sup" # curses is distributed with ruby
           "xrefresh-server"
           "rspec"
+    ];
+
+    ### RUBY 1.9
+
+    rubyPackages19 = names:
+      let defaults = ruby_defaults {
+        rubygems = null; # is built into ruby-1.9
+        ruby = pkgs.ruby19;
+      };
+      in resolveRubyPkgDependencies {
+        inherit (defaults) rubyPackages patches rubyDerivation;
+        inherit names;
+      };
+
+    # packages known to work:
+    tested19 = rubyPackages19 [
+          "nokogiri" "rake" "escape"
+          "git"
+          "hoe"
+          "rubyforge"
+          "json-pure"
+          "chronic"
+          "jeweler"
+          "rake"
+          "ncursesw"
+          "trollop"
+          "gettext"
+          "locale"
+          "lockfile"
+          "rmail"
+          "highline"
+          "net-ssh"
+          "mime-types"
+          # "sup" # requires ncurses wich doesn't copmile (?)
+          "xrefresh-server"
+          "rspec"
+          "ffi"
+          "xapian-full"
+          "ncursesw"
+          "ncurses"
     ];
 
     inherit resolveRubyPkgDependencies;
