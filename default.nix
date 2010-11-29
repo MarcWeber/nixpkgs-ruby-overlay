@@ -11,6 +11,7 @@
 
 # additional:
 , nixpkgs ? ../nixpkgs
+, ...
 }:
 
 /* overview:
