@@ -17,7 +17,7 @@
 /* overview:
 
    gem nix fetches all known packgaes from default sources (rubygems, gemcutter).
-   Those packages are written to nix package list pkgs/defaults.nix.
+   Those packages are written to nix package list pkgs/ruby-packages.nix.
    resolveRubyPkgDependencies then tries to find dependiencies automatically
    failing if dependency constraints can't be satisfied. A very simple
    implementation is used.
@@ -51,7 +51,7 @@ let
       inherit pkgs ruby rubygems;
     };
 
-  # roselves dependencies automatically ensuring that only one version of a
+  # resolves dependencies automatically ensuring that only one version of a
   # library is present in the dependency chain by ignoring all "older" versions
   # of a package. So this KISS solver is likely miss some valid solutions which
   # reqiure older package versions
@@ -135,6 +135,34 @@ let
         inherit names;
       };
 
+    # usage:
+    # rubyEnv "sup" pkgs.ruby18 (tested18.sup.buildInputs ++ tested18.sup.propagatedBuildInputs)
+    # then you can put the libraries in ENV this way:
+    # ruby-env-sup /bin/sh
+    rubyEnv = name: ruby: packages: pkgs.stdenv.mkDerivation {
+      name = "ruby-wrapper-${name}";
+      buildInputs = [ruby] ++ packages;
+      unpackPhase = ":";
+      installPhase = ''
+        ensureDir $out/bin
+        b=$out/bin/ruby-env-${name}
+        cat >> $b << EOF
+        #!/bin/sh
+        if [ "$1" == "--clean" ]; then
+          shift
+          unset RUBYLIB
+          unset GEM_PATH
+        fi
+        export RUBYLIB=$RUBYLIB\''${RUBYLIB:+}\$RUBYLIB
+        export GEM_PATH=$GEM_PATH\''${GEM_PATH:+:}\$GEM_PATH
+        # export PATH=${ruby}/bin\''${PATH:+:}\$PATH
+        export PATH=$PATH\''${PATH:+:}\$PATH
+        "\$@"
+        EOF
+        chmod +x $b
+      '';
+    };
+
     # packages known to work:
     tested18 = rubyPackages18 [
           "nokogiri" "rake" "escape"
@@ -197,8 +225,27 @@ let
           "ffi"
           "xapian-full"
           "ncursesw"
-          "ncurses"
+          # "ncurses"
+          "rails"
+          "bundler"
+
+          # to test
+          "ZenTest"
+          "rake-compiler"
     ];
+
+    # example usage of a ruby environment you can load easily
+    railsEnv = rubyEnv "rails-env" pkgs.ruby19 (lib.attrValues (rubyPackages19 
+          [ "rake" "rails" "bundler"
+
+          # comomnly used databases
+          "sqlite3-ruby"
+
+          # tool
+          "haml"
+          "sinatra"
+          ]
+          ));
 
     inherit resolveRubyPkgDependencies;
 

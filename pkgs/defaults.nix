@@ -37,6 +37,10 @@ in rec {
                   "--with-xslt-dir=${pkgs.libxslt}" ];
     };
 
+    rdoc = {
+      gemFlags =[ "--no-ri" "--no-rdoc" ]; # can't bootstrap itself yet (TODO)
+    };
+
     ffi = {
       postUnpack = "onetuh";
       additionalRubyDependencies = [ "rake" ];
@@ -60,9 +64,12 @@ in rec {
     };
 
     "xapian-full" = {
-      additionalRubyDependencies = [ "rake" ];
+      gemFlags = [ "--no-rdoc" ]; # compiling for ruby1.9 fails with: ERROR:  While executing gem ... (Encoding::UndefinedConversionError) U+2019 from UTF-8 to US-ASCII
+      additionalRubyDependencies = [ "rake" "rdoc" ];
       buildInputs = [ pkgs.zlib pkgs.libuuid ];
     };
+
+    "sqlite3-ruby" = { buildInputs = [ pkgs.sqlite ]; };
   };
 
 
@@ -81,7 +88,7 @@ in rec {
               ensureDir "$out/nix-support"
               export HOME=$TMP/home; mkdir "$HOME"
 
-              gem install -V --ignore-dependencies -i "$out" "$src" $gemFlags -- $buildFlags
+              gem install --backtrace -V --ignore-dependencies -i "$out" "$src" $gemFlags -- $buildFlags
               rm -fr $out/cache # don't keep the .gem file here
 
               THIS_RUBY_LIB=$(echo $out/gems/*/lib)
@@ -130,6 +137,8 @@ in rec {
         args 
       ]
       ));
-    in stdenv.mkDerivation (removeAttrs completeArgs ["mergeAttrBy"]);
+    in
+      let args = (removeAttrs completeArgs ["mergeAttrBy"]);
+      in stdenv.mkDerivation args;
 
 }
