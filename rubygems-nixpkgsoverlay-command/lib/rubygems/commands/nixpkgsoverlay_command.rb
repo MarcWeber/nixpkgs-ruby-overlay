@@ -55,6 +55,10 @@ class Gem::Commands::NixpkgsoverlayCommand < Gem::Command
 
       @target_nix = options[:args][0]
 
+      # by default the latest versions will be fetched only. Use this file to
+      # specify additional versions to be fetched
+      @additional_gems_file = options[:args][1]
+
       if @target_nix.nil?
         throw "first argument must point to $NIXPKGS_RUBY_OVERLAY/pkgs/ruby-packages.nix"
       end
@@ -77,8 +81,15 @@ class Gem::Commands::NixpkgsoverlayCommand < Gem::Command
 
           # fetches all sources defined in Gem::sources
           # File.open("/tmp/all", "rb") { |file| all = Marshal.load(file) }
-          all = Gem::SpecFetcher.fetcher.list(false, @prerelease) # (all = false, prerelease = false)
+          #  On Mon Feb 14 18:15:47 CET 2011  all packages are around 100.000,
+          #  the latest only about 20.000
+          #  100.000 is quite a lot... so maybe use the latest + a set of
+          #  elected versions ?
+          all = Gem::SpecFetcher.fetcher.list(true, @prerelease) # (all = false, prerelease = false)
           File.open("/tmp/all", "wb") { |file| Marshal.dump(all, file) }
+
+          # get additional gems:
+
 
           # now the fun begins:
           
