@@ -143,7 +143,7 @@ class Gem::Commands::NixpkgsoverlayCommand < Gem::Command
                 end
 
                 # deps_to_s = lambda {|list| list.map {|n| "\"#{n.name} #{n.version_requirements}\"" }.join(", ") }
-                deps_to_s = lambda {|list| list.map {|r|  "[\"#{r.name}\"  [#{r.requirement.requirements.map {|r| assert(r.length ==2); "[\"#{r[0]}\" \"#{r[1]}\"]"}.join(" ") }]]" } }
+                deps_to_s = lambda {|list| list.map {|r|  "[\"#{r.name}\"  [#{r.requirement.requirements.map {|r| assert(r.length ==2); "[\"#{r[0]}\" \"#{r[1]}\"]"}.join(" ") }]]" }.join(" ") }
                 remote_gem_path = uri + "gems/#{spec.file_name}"
 
                 ld = spec.description.nil? ? " no description " : spec.description.strip
