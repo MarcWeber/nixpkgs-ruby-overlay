@@ -1,4 +1,4 @@
-{writeScript, pkgs, ruby, rubygems}:
+{writeScript, pkgs, ruby, rubygems, mainConfig}:
 
 let inherit (pkgs) fetchurl stdenv lib;
     inherit (pkgs.lib) mergeAttrsByFuncDefaults optional;
@@ -6,7 +6,7 @@ let inherit (pkgs) fetchurl stdenv lib;
 
 in rec {
 
-  rubyPackages = pkgs.callPackage ./ruby-packages.nix {};
+  inherit (import ../nixpkgs-ruby-overlay-specs mainConfig) specsByPlatformName;
 
   patchUsrBinEnv = writeScript "path-usr-bin-env" ''
     #!/bin/sh

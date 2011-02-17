@@ -42,82 +42,104 @@ let
   lib = pkgs.lib;
   getConfig = pkgs.getConfig;
 
-  inherit (builtins) attrNames head tail compareVersions lessThan filter hasAttr getAttr toXML;
+  inherit (builtins) attrNames head tail compareVersions lessThan filter hasAttr getAttr toXML isString;
 
-  inherit (lib) attrSingleton mergeAttrsByFuncDefaults optional listToAttrs;
+  inherit (lib) attrSingleton mergeAttrsByFuncDefaults optional listToAttrs
+                attrValues concatLists mapAttrs nvs concatStringsSep fold concatStrings;
+
+
+  ### helper functions (reimplementation of gems verion matching)
+  # version something like ["=" "3.0.4"]
+  # spec must have version and bump attributes
+  specMatchesVersionConstraint = spec: c:
+    let
+        op = head c;
+        v = head (tail c);
+        x = compareVersions spec.version v;
+        fs = {
+          "="  = x == 0;
+          "!=" = x != 0;
+          ">"  = lessThan 0 x;
+          "<"  = lessThan x 0;
+          ">=" = x == 0 || lessThan 0 x;
+          "<=" = x == 0 || lessThan x 0;
+          "~>" = (lessThan 0 x || x == 0) && lessThan 0 (compareVersions spec.bump v);
+        };
+     in getAttr op fs;
+
+  specMatchesVersionConstraints = spec: constraints: lib.all (specMatchesVersionConstraint spec) constraints;
+
+  ### default implementation
 
   ruby_defaults = {ruby, rubygems}:
     pkgs.callPackage pkgs/defaults.nix {
-      inherit pkgs ruby rubygems;
+      inherit pkgs ruby rubygems mainConfig;
     };
 
-  # resolves dependencies automatically ensuring that only one version of a
-  # library is present in the dependency chain by ignoring all "older" versions
-  # of a package. So this KISS solver is likely miss some valid solutions which
-  # reqiure older package versions
+  # resolves dependencies automatically. Dependencies are taken from the specs
+  # fails if two different version of the same package are found in a dependency tree.
+  # If this failure happens you have to filter the pool by passing p forcing a
+  # specific version.
   #
   # returns: list of derivation. attr names are package names (without version)
   resolveRubyPkgDependencies = { platform ? "ruby",  # platform. ruby tested only.
-                                  rubyPackages ? {},     # dict like pkgs/ruby-packages.nix
+                                  specsByPlatformName ? {}, # function taking a platform and a name returning specs by version attrs
                                                          # mandatory keys: name, version, ...
-                                  names ? [],   # the packages you'd like to use (list of names)
+                                  names ? [],   # the packages you'd like to use (list of names or ["name" [[version constraint]]])
                                   patches ? {}, # some dependencies require C extensions
-                                  rubyDerivation ? (args: throw "no function specified") # creates the derivation
+                                  rubyDerivation ? (args: throw "no function specified"), # creates the derivation
+                                  p ? (x:true)  # predicate which you can use to exclude versions
       }:
 
-    let latestPkg = list: builtins.head (lib.sort (a: b: builtins.compareVersions a.version b.version) list);
+      let 
+          packageByNameAndConstraints = depending: name: constraints:
+            let specs = specsByPlatformName platform name;
+                sortSpecsByVersion = list: lib.sort (a: b: builtins.compareVersions a.version b.version) list;
+                matching = lib.filter (spec: p spec && specMatchesVersionConstraints spec constraints) (sortSpecsByVersion (lib.attrValues specs));
+            in if matching == [] then throw "no spec satisfying name ${name} after applying filter and constraints ${depending}" else head matching;
 
-        # result is attrs containing package names only
-        latestByName = listToAttrs ( lib.mapAttrsFlatten
-                            (pkg_name : attr:
-                              let latest = latestPkg (lib.attrValues attr);
-                              in  { name = latest.name;
-                                    value = latest;
-                                  }
-                            ) (getAttr platform rubyPackages) );
+          # <set of deep dependencies> : { name = { version = derivation ; ... }; ... }
 
-        pkgByName = depending: name: lib.maybeAttr name (throw "couldn't find ruby dependency named ${name} required by ${depending}") latestByName;
+          nameToConstraint = p: if isString p then [p []] else p;
 
-        pkgByConstraints = depending: p:
-          let name = head p;
-              constraints = head (tail p);
-              pkg = pkgByName depending name;
-              match = op_version:
-                let op = head op_version;
-                    v = head (tail op_version);
-                    x = compareVersions pkg.version v;
-                    fs = {
-                      "="  = x == 0;
-                      "!=" = x != 0;
-                      ">"  = lessThan 0 x;
-                      "<"  = lessThan x 0;
-                      ">=" = x == 0 || lessThan 0 x;
-                      "<=" = x == 0 || lessThan x 0;
-                      "~>" = (lessThan 0 x || x == 0) && lessThan 0 (compareVersions pkg.bump v);
-                    };
-                in getAttr op fs;
-          failing = lib.filter (x: !(match x)) constraints;
+          # merges <set of deep dependencies>
+          mergeDeepDeps = lib.mergeAttrsWithFunc (lib.mergeAttrs);
 
-          in if failing ==[] then pkg else (throw "couldn't satisfy all contstraints of depndency ${name} reqiured by ${depending}: ${toXML failing}");
+          toDD = name: version: x: nvs name (nvs version x);
 
-        makeDerivation =
-              making: # list of names being visited to prevent cyclic dependencies
-              pkg_descr:
-          let full_name = "${pkg_descr.name}-${pkg_descr.version}";
-              patchesList = optional (hasAttr full_name patches) (getAttr full_name patches)
-                     ++ optional (hasAttr pkg_descr.name patches) (getAttr pkg_descr.name patches);
-              patched_descr = merge ([pkg_descr] ++ patchesList);
-              nameToConstraint = f: [f []];
-              ruby_deps = patched_descr.runtimeDependencies 
-                          ++ (map nameToConstraint (lib.maybeAttr "additionalRubyDependencies" [] patched_descr));
-              making_new = making ++ [pkg_descr.name];
-              deps_derivations = map (x: makeDerivation making_new (pkgByConstraints pkg_descr.name x)) ruby_deps;
+          # returns { d =  { name = derivation; }; deepDeps = <set of deep dependencies>; }
+          derivationByConstraint = visiting: depending: c:
+            let spec = packageByNameAndConstraints depending (nameToConstraint c);
 
-          in if  lib.elem pkg_descr.name making then throw "cyclic dependency ${toXML making} -> ${pkg_descr.name}"
-              else rubyDerivation (merge [ patched_descr { propagatedBuildInputs = deps_derivations; } ]);
+                # used in else, calculated lazily:
+                patchesList = optional (hasAttr full_name patches) (getAttr full_name patches)
+                           ++ optional (hasAttr spec.name patches) (getAttr spec.name patches);
+                patched_spec = merge ([spec] ++ patchesList);
 
-    in listToAttrs (map (name: { inherit name; value = makeDerivation [] (pkgByName "<user>" name); } ) names)
-  ; # end resolveRubyPkgDependencies
+                full_name = "${spec.name}-${spec.version}";
+                cDeps = spec.runtimeDependencies ++ map (nameToConstraint) (lib.maybeAttr "additionalRubyDependencies" [] patched_spec);
+                deps = derivationsByConstraints ([spec.name] ++ visiting) spec.name cDeps;
+
+                d = rubyDerivation (merge ([spec { propagatedBuildInputs = attrValues deps.d; }] ++ patchesList));
+
+            in if lib.elem spec.name visiting then throw "cyclic dependency ${concatStringsSep "->" visiting}"
+               else { inherit d; deepDeps = mergeDeepDeps (toDD spec.name spec.version d) deps.deepDeps; };
+
+          # returns { d = { name1 =  d1, name2 = d2; .. }; deepDeps = <set of deep dependencies>; }
+          derivationsByConstraints = visiting: depending: cs:
+            fold (a: b: { d = a.d // b.d; deepDeps = mergeDeepDeps a.deepDeps b.deepDeps; })
+                 {} (map derivationByConstraint names);
+
+          resolved = derivationsByConstraints [] "" names;
+          many = x: tail x != [];
+          trouble = concatLists ( attrValues ( mapAttrs ( name: byV:
+                      let versions = attrNames byV;
+                      in if many versions then [ "\n${name}: [${lib.concatStringsSep ", " versions}]\n" ]
+                          else []) resolved.deepDeps ) );
+       in if trouble != []
+          then throw "multiple versions selected of the same package name selected by solver. Add constraints manually! ${concatStrings trouble}"
+          else resolved.d;
+  # end resolveRubyPkgDependencies
    
   a = rec {
 
@@ -131,7 +153,7 @@ let
         ruby = pkgs.ruby18;
       };
       in resolveRubyPkgDependencies {
-        inherit (defaults) rubyPackages patches rubyDerivation;
+        inherit (defaults) specsByPlatformName patches rubyDerivation;
         inherit names;
       };
 
@@ -196,7 +218,7 @@ let
         ruby = pkgs.ruby19;
       };
       in resolveRubyPkgDependencies {
-        inherit (defaults) rubyPackages patches rubyDerivation;
+        inherit (defaults) specsByPlatformName patches rubyDerivation;
         inherit names;
       };
 
