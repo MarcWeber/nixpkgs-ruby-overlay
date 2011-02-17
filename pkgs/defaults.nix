@@ -6,7 +6,7 @@ let inherit (pkgs) fetchurl stdenv lib;
 
 in rec {
 
-  inherit (import ../nixpkgs-ruby-overlay-specs mainConfig) specsByPlatformName;
+  inherit (import ../../nixpkgs-ruby-overlay-specs mainConfig) specsByPlatformName;
 
   patchUsrBinEnv = writeScript "path-usr-bin-env" ''
     #!/bin/sh

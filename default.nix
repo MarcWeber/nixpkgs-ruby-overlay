@@ -88,19 +88,23 @@ let
                                   names ? [],   # the packages you'd like to use (list of names or ["name" [[version constraint]]])
                                   patches ? {}, # some dependencies require C extensions
                                   rubyDerivation ? (args: throw "no function specified"), # creates the derivation
-                                  p ? (x:true)  # predicate which you can use to exclude versions
+                                  p ? (x: true)  # predicate which you can use to exclude versions
       }:
 
       let 
-          packageByNameAndConstraints = depending: name: constraints:
-            let specs = specsByPlatformName platform name;
-                sortSpecsByVersion = list: lib.sort (a: b: builtins.compareVersions a.version b.version) list;
+
+          # cn either ["rake"  [[">=" "0.4.4"]]]
+          #    or     "rake"
+          packageByNameAndConstraints = depending: cn:
+            let name = if isString cn then cn else head cn;
+                constraints = if isString cn then [] else head (tail cn);
+                specs = specsByPlatformName platform name;
+                sortSpecsByVersion = list: 
+                lib.sort (a: b: builtins.lessThan 0 (builtins.compareVersions a.version b.version)) list;
                 matching = lib.filter (spec: p spec && specMatchesVersionConstraints spec constraints) (sortSpecsByVersion (lib.attrValues specs));
-            in if matching == [] then throw "no spec satisfying name ${name} after applying filter and constraints ${depending}" else head matching;
+            in if matching == [] then throw "no spec satisfying name ${name} after applying filter and constraints. gem requesting dependency: ${depending}" else head matching;
 
           # <set of deep dependencies> : { name = { version = derivation ; ... }; ... }
-
-          nameToConstraint = p: if isString p then [p []] else p;
 
           # merges <set of deep dependencies>
           mergeDeepDeps = lib.mergeAttrsWithFunc (lib.mergeAttrs);
@@ -109,7 +113,7 @@ let
 
           # returns { d =  { name = derivation; }; deepDeps = <set of deep dependencies>; }
           derivationByConstraint = visiting: depending: c:
-            let spec = packageByNameAndConstraints depending (nameToConstraint c);
+            let spec = packageByNameAndConstraints depending c;
 
                 # used in else, calculated lazily:
                 patchesList = optional (hasAttr full_name patches) (getAttr full_name patches)
@@ -117,18 +121,18 @@ let
                 patched_spec = merge ([spec] ++ patchesList);
 
                 full_name = "${spec.name}-${spec.version}";
-                cDeps = spec.runtimeDependencies ++ map (nameToConstraint) (lib.maybeAttr "additionalRubyDependencies" [] patched_spec);
-                deps = derivationsByConstraints ([spec.name] ++ visiting) spec.name cDeps;
+                cDeps = spec.runtimeDependencies ++ (lib.maybeAttr "additionalRubyDependencies" [] patched_spec);
+                deps = derivationsByConstraints ([spec.name] ++ visiting) full_name cDeps;
 
                 d = rubyDerivation (merge ([spec { propagatedBuildInputs = attrValues deps.d; }] ++ patchesList));
 
             in if lib.elem spec.name visiting then throw "cyclic dependency ${concatStringsSep "->" visiting}"
-               else { inherit d; deepDeps = mergeDeepDeps (toDD spec.name spec.version d) deps.deepDeps; };
+               else { d = nvs spec.name d; deepDeps = mergeDeepDeps (toDD spec.name spec.version d) deps.deepDeps; };
 
           # returns { d = { name1 =  d1, name2 = d2; .. }; deepDeps = <set of deep dependencies>; }
           derivationsByConstraints = visiting: depending: cs:
             fold (a: b: { d = a.d // b.d; deepDeps = mergeDeepDeps a.deepDeps b.deepDeps; })
-                 {} (map derivationByConstraint names);
+                 { d = {}; deepDeps = {}; } (map (derivationByConstraint visiting depending) cs);
 
           resolved = derivationsByConstraints [] "" names;
           many = x: tail x != [];
@@ -228,7 +232,7 @@ let
           "git"
           "hoe"
           "rubyforge"
-          "json-pure"
+          "json_pure"
           "chronic"
           "jeweler"
           "rake"
