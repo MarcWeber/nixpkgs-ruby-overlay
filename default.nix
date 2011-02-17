@@ -108,11 +108,15 @@ let
                                   names ? [],   # the packages you'd like to use (list of names or ["name" [[version constraint]]])
                                   patches ? {}, # some dependencies require C extensions
                                   rubyDerivation ? (args: throw "no function specified"), # creates the derivation
-                                  p ? (x: true)  # predicate which you can use to exclude versions
+                                  p ? (x: true),  # predicate which you can use to exclude versions
+                                  forceDeps ? [] # force additional deps such as rubygems to force a newer version
+                                                 # if you force a newer rubygems version be aware that old files are still found in ruby19!
       }:
 
       let 
 
+          nameOf = x: if isString x then x else head x;
+          forcedNames =  map nameOf forceDeps;
 
           # <set of deep dependencies> : { name = { version = derivation ; ... }; ... }
 
@@ -131,10 +135,13 @@ let
                 patched_spec = merge ([spec] ++ patchesList);
 
                 full_name = "${spec.name}-${spec.version}";
-                cDeps = spec.runtimeDependencies ++ (lib.maybeAttr "additionalRubyDependencies" [] patched_spec);
+                # if don't add forcedDeps to forcedDeps which would result in cyclic depndencies
+                forcedDeps = lib.filter (x: !lib.elem (nameOf x) forcedNames) forceDeps;
+                cDeps = forcedDeps ++ spec.runtimeDependencies ++ (lib.maybeAttr "additionalRubyDependencies" [] patched_spec);
                 deps = derivationsByConstraints ([spec.name] ++ visiting) full_name cDeps;
 
-                d = rubyDerivation (merge ([spec { propagatedBuildInputs = attrValues deps.d; }] ++ patchesList));
+                args = merge ([patched_spec { propagatedBuildInputs = attrValues deps.d; }]);
+                d = rubyDerivation args;
 
             in if lib.elem spec.name visiting then throw "cyclic dependency ${concatStringsSep "->" visiting}"
                else { d = nvs spec.name d; deepDeps = mergeDeepDeps (toDD spec.name spec.version d) deps.deepDeps; };
@@ -161,14 +168,15 @@ let
 
     ### RUBY 1.8
 
-    rubyPackages18 = names:
+    rubyPackages18 = { names ? [], forceDeps ? []}:
+      # duplication !!
       let defaults = ruby_defaults {
         inherit (pkgs) rubygems;
         ruby = pkgs.ruby18;
       };
       in resolveRubyPkgDependencies {
-        inherit (defaults) specsByPlatformName patches rubyDerivation;
-        inherit names;
+        inherit (defaults) patches rubyDerivation;
+        inherit names forceDeps specsByPlatformName;
       };
 
     # usage:
@@ -200,7 +208,8 @@ let
     };
 
     # packages known to work:
-    tested18 = rubyPackages18 [
+    tested18 = rubyPackages18 {
+       names = [
           "nokogiri" "rake" "escape"
           "git"
           "hoe"
@@ -223,21 +232,24 @@ let
           "xrefresh-server"
           "rspec"
     ];
-
+    }; 
     ### RUBY 1.9
 
-    rubyPackages19 = names:
+    rubyPackages19 = { names ? [], forceDeps ? []}:
+    # duplication !!
       let defaults = ruby_defaults {
         rubygems = null; # is built into ruby-1.9
         ruby = pkgs.ruby19;
       };
       in resolveRubyPkgDependencies {
-        inherit (defaults) specsByPlatformName patches rubyDerivation;
-        inherit names;
+        inherit (defaults) patches rubyDerivation;
+        inherit names forceDeps specsByPlatformName;
       };
 
     # packages known to work:
-    tested19 = rubyPackages19 [
+    tested19 = rubyPackages19 {
+       forceDeps = ["rubygems-update"]; # oh this is hacky! be aware that this overrides rubygems shipped with ruby19.
+       names = [
           "nokogiri" "rake" "escape"
           "git"
           "hoe"
@@ -268,32 +280,37 @@ let
           # to test
           "ZenTest"
           "rake-compiler"
-    ];
+       ];
+   };
 
     # example usage of a ruby environment you can load easily
-    railsEnv = rubyEnv "rails-env" pkgs.ruby19 (lib.attrValues (rubyPackages19 
-          [ "rake" "rails" "bundler"
+    railsEnv = rubyEnv "rails-env" pkgs.ruby19 (lib.attrValues (rubyPackages19 {
+          names = [ "rake" "rails" "bundler"
 
-          # comomnly used databases
-          "sqlite3-ruby"
+              # comomnly used databases
+              "sqlite3-ruby"
 
-          # tool
-          "haml"
-          "sinatra"
-          ]
+              # tool
+              "haml"
+              "sinatra"
+              ];
+          }
           ));
 
     inherit resolveRubyPkgDependencies;
 
-    # usage: cd $(GEM="$1" nix-build -A ro.preview $NIXPKGS_ALL --no-out-link )
-    preview =
-      let spec = packageByNameAndConstraints { inherit specsByPlatformName;  cn = builtins.getEnv "GEM"; };
-      in pkgs.runCommand "${spec.name}-source-preview" {} ''
+    previewDerivation = spec:
+      pkgs.runCommand "${spec.name}-source-preview" {} ''
         ensureDir $out
         cd $out
         tar xf ${spec.src}
         tar xfz data.tar.gz
       '';
+
+    # usage: cd $(GEM="$1" nix-build -A ro.preview $NIXPKGS_ALL --no-out-link )
+    preview =
+      let spec = packageByNameAndConstraints { inherit specsByPlatformName;  cn = builtins.getEnv "GEM"; };
+      in  previewDerivation;
 
   };
 

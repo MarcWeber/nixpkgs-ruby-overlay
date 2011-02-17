@@ -6,8 +6,6 @@ let inherit (pkgs) fetchurl stdenv lib;
 
 in rec {
 
-  inherit (import ../../nixpkgs-ruby-overlay-specs mainConfig) specsByPlatformName;
-
   patchUsrBinEnv = writeScript "path-usr-bin-env" ''
     #!/bin/sh
     set -x
@@ -24,7 +22,6 @@ in rec {
       additionalRubyDependencies = ["ncursesw"];
       buildInputs = [ pkgs.xapianBindings ];
     };
-    sqlite3_ruby = { propagatedBuildInputs = [ pkgs.sqlite ]; };
     # rails = {
     #   gemFlags = "--no-ri --no-rdoc";
     #   additionalRubyDependencies = [ "mime_types" ];
@@ -69,7 +66,11 @@ in rec {
       buildInputs = [ pkgs.zlib pkgs.libuuid ];
     };
 
-    "sqlite3-ruby" = { buildInputs = [ pkgs.sqlite ]; };
+    "sqlite3" = { 
+      buildInputs = [ pkgs.sqlite ];
+      # buildFlags = [ "--with-sqlite3-dir=${pkgs.sqlite}" "--with-sqlite3-include=${pkgs.sqlite}/include" "--with-sqlite3-lib=${pkgs.sqlite}/lib" ];
+    };
+    sqlite3_ruby = { propagatedBuildInputs = [ pkgs.sqlite ]; };
   };
 
 
