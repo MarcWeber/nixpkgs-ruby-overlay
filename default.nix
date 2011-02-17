@@ -48,6 +48,8 @@ let
                 attrValues concatLists mapAttrs nvs concatStringsSep fold concatStrings;
 
 
+  inherit (import ../nixpkgs-ruby-overlay-specs mainConfig) specsByPlatformName;
+
   ### helper functions (reimplementation of gems verion matching)
   # version something like ["=" "3.0.4"]
   # spec must have version and bump attributes
@@ -68,6 +70,24 @@ let
      in getAttr op fs;
 
   specMatchesVersionConstraints = spec: constraints: lib.all (specMatchesVersionConstraint spec) constraints;
+
+  packageByNameAndConstraints = { specsByPlatformName
+                                , depending ? ""
+                                , cn # either ["rake"  [[">=" "0.4.4"]]] or just "rake"
+                                , platform ? "ruby"
+                                , p ? (x: true) # see resolveRubyPkgDependencies
+                                }:
+    let name = if isString cn then cn else head cn;
+        constraints = if isString cn then [] else head (tail cn);
+        specs = specsByPlatformName platform name;
+        sortSpecsByVersion = list: 
+          if list == [] 
+          then []
+          else lib.sort (a: b: builtins.lessThan 0 (builtins.compareVersions a.version b.version)) list;
+        matching = lib.filter (spec: p spec && specMatchesVersionConstraints spec constraints) (sortSpecsByVersion (lib.attrValues specs));
+    in if matching == [] then throw "no spec satisfying name ${name} after applying filter and constraints. gem requesting dependency: ${depending}"
+       else head matching;
+
 
   ### default implementation
 
@@ -93,16 +113,6 @@ let
 
       let 
 
-          # cn either ["rake"  [[">=" "0.4.4"]]]
-          #    or     "rake"
-          packageByNameAndConstraints = depending: cn:
-            let name = if isString cn then cn else head cn;
-                constraints = if isString cn then [] else head (tail cn);
-                specs = specsByPlatformName platform name;
-                sortSpecsByVersion = list: 
-                lib.sort (a: b: builtins.lessThan 0 (builtins.compareVersions a.version b.version)) list;
-                matching = lib.filter (spec: p spec && specMatchesVersionConstraints spec constraints) (sortSpecsByVersion (lib.attrValues specs));
-            in if matching == [] then throw "no spec satisfying name ${name} after applying filter and constraints. gem requesting dependency: ${depending}" else head matching;
 
           # <set of deep dependencies> : { name = { version = derivation ; ... }; ... }
 
@@ -112,8 +122,8 @@ let
           toDD = name: version: x: nvs name (nvs version x);
 
           # returns { d =  { name = derivation; }; deepDeps = <set of deep dependencies>; }
-          derivationByConstraint = visiting: depending: c:
-            let spec = packageByNameAndConstraints depending c;
+          derivationByConstraint = visiting: depending: cn:
+            let spec = packageByNameAndConstraints { inherit platform specsByPlatformName depending cn; };
 
                 # used in else, calculated lazily:
                 patchesList = optional (hasAttr full_name patches) (getAttr full_name patches)
@@ -274,6 +284,16 @@ let
           ));
 
     inherit resolveRubyPkgDependencies;
+
+    # usage: cd $(GEM="$1" nix-build -A ro.preview $NIXPKGS_ALL --no-out-link )
+    preview =
+      let spec = packageByNameAndConstraints { inherit specsByPlatformName;  cn = builtins.getEnv "GEM"; };
+      in pkgs.runCommand "${spec.name}-source-preview" {} ''
+        ensureDir $out
+        cd $out
+        tar xf ${spec.src}
+        tar xfz data.tar.gz
+      '';
 
   };
 
