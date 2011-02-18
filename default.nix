@@ -51,6 +51,11 @@ let
   inherit (import ../nixpkgs-ruby-overlay-specs mainConfig) specsByPlatformName;
 
   ### helper functions (reimplementation of gems verion matching)
+
+  tag = pkg:
+    let sAT = pkgs.sourceAndTags;
+    in sAT.sourceWithTagsDerivation (sAT.sourceWithTagsFromDerivation (sAT.addRubyTagingInfo pkg));
+
   # version something like ["=" "3.0.4"]
   # spec must have version and bump attributes
   specMatchesVersionConstraint = spec: c:
@@ -163,54 +168,75 @@ let
                           else []) resolved.deepDeps ) );
        in if trouble != []
           then throw "multiple versions selected of the same package name selected by solver. Add constraints manually! ${concatStrings trouble}"
-          else resolved.d;
+          else resolved;
   # end resolveRubyPkgDependencies
    
   a = rec {
 
     inherit ruby_defaults;
 
-    ### RUBY 1.8
+    rubyPackagesFor = { ruby, rubygems ? null, names ? [], forceDeps ? [], p ? {} }:
+      let defaults = ruby_defaults { inherit rubygems ruby; };
+          resolved = resolveRubyPkgDependencies {
+                      inherit (defaults) patches rubyDerivation;
+                      inherit names forceDeps specsByPlatformName;
+                      p = attrsToP p;
+                    };
+          # all packages of the dependency tree including ruby and rubygems
+          allP = concatLists (attrValues (mapAttrs (n: v: attrValues v) resolved.deepDeps))
+                ++ lib.optional (rubygems != null) rubygems
+                ++ [ ruby ];
+          sAT = pkgs.sourceAndTags;
+      in {
+        # requested packages by name:
+        packages = resolved.d;
 
-    rubyPackages18 = { names ? [], forceDeps ? [], p ? {}}:
-      # duplication !!
-      let defaults = ruby_defaults {
-        inherit (pkgs) rubygems;
-        ruby = pkgs.ruby18;
+        # all + with tags
+        all = allP;
+        tagged = lib.optionals (pkgs.getConfig ["ruby" "tags"] false)
+                               (map tag allP);
       };
-      in resolveRubyPkgDependencies {
-        inherit (defaults) patches rubyDerivation;
-        inherit names forceDeps specsByPlatformName;
-        p = attrsToP p;
-      };
+
+    rubyPackages18 = args: rubyPackagesFor ({ruby = pkgs.ruby18; inherit (pkgs) rubygems;} // args);
+    rubyPackages19 = args: rubyPackagesFor ({ruby = pkgs.ruby19; } // args);
+
 
     # usage:
-    # rubyEnv "sup" pkgs.ruby18 (tested18.sup.buildInputs ++ tested18.sup.propagatedBuildInputs)
+    # rubyEnv [ "sup" "hoe" "rails" ];
     # then you can put the libraries in ENV this way:
     # ruby-env-sup /bin/sh
-    rubyEnv = name: ruby: packages: pkgs.stdenv.mkDerivation {
-      name = "ruby-wrapper-${name}";
-      buildInputs = [ruby] ++ packages;
-      unpackPhase = ":";
-      installPhase = ''
-        ensureDir $out/bin
-        b=$out/bin/ruby-env-${name}
-        cat >> $b << EOF
-        #!/bin/sh
-        if [ "$1" == "--clean" ]; then
-          shift
-          unset RUBYLIB
-          unset GEM_PATH
-        fi
-        export RUBYLIB=$RUBYLIB\''${RUBYLIB:+}\$RUBYLIB
-        export GEM_PATH=$GEM_PATH\''${GEM_PATH:+:}\$GEM_PATH
-        # export PATH=${ruby}/bin\''${PATH:+:}\$PATH
-        export PATH=$PATH\''${PATH:+:}\$PATH
-        "\$@"
-        EOF
-        chmod +x $b
-      '';
-    };
+    rubyEnv = rubyPackagesFor: {name ? "ruby", names ? [], p ? {} }:
+      let p = rubyPackagesFor { inherit names p; };
+      in pkgs.stdenv.mkDerivation {
+        name = "ruby-wrapper-${name}";
+        buildInputs = p.all ++ p.tagged;
+        tagged = p.tagged;
+        unpackPhase = ":";
+        installPhase = ''
+          ensureDir $out/bin
+          b=$out/bin/ruby-env-${name}
+          cat >> $b << EOF
+          #!/bin/sh
+          if [ "$1" == "--clean" ]; then
+            shift
+            unset RUBYLIB
+            unset GEM_PATH
+          fi
+          export RUBYLIB=$RUBYLIB\''${RUBYLIB:+}\$RUBYLIB
+          export GEM_PATH=$GEM_PATH\''${GEM_PATH:+:}\$GEM_PATH
+          export PATH=$PATH\''${PATH:+:}\$PATH
+          export TAG_FILES=$TAG_FILES\''${TAG_FILES:+:}\$TAG_FILES
+          "\$@"
+          EOF
+          chmod +x $b
+        '';
+      };
+
+    rubyEnv18 = rubyEnv rubyPackages18;
+    rubyEnv19 = rubyEnv rubyPackages19;
+
+    ### RUBY 1.8
+
 
     # packages known to work:
     tested18 = rubyPackages18 {
@@ -237,20 +263,8 @@ let
           "xrefresh-server"
           "rspec"
     ];
-    }; 
+    }.packages; 
     ### RUBY 1.9
-
-    rubyPackages19 = { names ? [], forceDeps ? [], p ? {}}:
-    # duplication !!
-      let defaults = ruby_defaults {
-        rubygems = null; # is built into ruby-1.9
-        ruby = pkgs.ruby19;
-      };
-      in resolveRubyPkgDependencies {
-        inherit (defaults) patches rubyDerivation;
-        inherit names forceDeps specsByPlatformName;
-        p = attrsToP p;
-      };
 
     # packages known to work:
     tested19 = rubyPackages19 {
@@ -286,29 +300,30 @@ let
           "ZenTest"
           "rake-compiler"
        ];
-   };
+   }.packages;
 
     # example usage of a ruby environment you can load easily
-    railsEnv = rubyEnv "rails-env" pkgs.ruby19 (lib.attrValues (rubyPackages19 {
-          p = {
-            # bundler= [["~>" "1.1.2" ]];
-            rails  = [["="  "3.0.3" ]]; # rake requires exactly this version ?
-            activesupport = [[ "=" "3.0.3" ]];
-            builder = [[ "=" "2.1.2" ]];
-          };
-          names = [ "rake" "rails" 
-              "bundler"
-              "builder"
+    railsEnv = rubyEnv19 {
+        name = "rails";
+        p = {
+          # bundler= [["~>" "1.1.2" ]];
+          rails  = [["="  "3.0.3" ]]; # rake requires exactly this version ?
+          activesupport = [[ "=" "3.0.3" ]];
+          builder = [[ "=" "2.1.2" ]];
+        };
+        names = [
+          "rake" "rails" 
+          "bundler"
+          "builder"
 
-              # comomnly used databases
-              "sqlite3-ruby"
+          # comomnly used databases
+          "sqlite3-ruby"
 
-              # tool
-              "haml"
-              "sinatra"
-              ];
-          }
-          ));
+          # tool
+          "haml"
+          "sinatra"
+        ];
+    };
 
     inherit resolveRubyPkgDependencies;
 
@@ -324,6 +339,8 @@ let
     preview =
       let spec = packageByNameAndConstraints { inherit specsByPlatformName;  cn = builtins.getEnv "GEM"; };
       in  previewDerivation spec;
+
+    taggingTest = tag pkgs.ruby19;
 
   };
 
