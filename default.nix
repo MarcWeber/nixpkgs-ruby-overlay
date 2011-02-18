@@ -109,9 +109,10 @@ let
                                   patches ? {}, # some dependencies require C extensions
                                   rubyDerivation ? (args: throw "no function specified"), # creates the derivation
                                   p ? (x: true),  # predicate which you can use to exclude versions
-                                  forceDeps ? [] # force additional deps such as rubygems to force a newer version
-                                                 # if you force a newer rubygems version be aware that old files are still found in ruby19!
+                                  forceDeps ? [] # force additional deps - probably causing trouble. disabled
       }:
+
+      assert forceDeps == []; # too experimental
 
       let 
 
@@ -248,7 +249,6 @@ let
 
     # packages known to work:
     tested19 = rubyPackages19 {
-       forceDeps = ["rubygems-update"]; # oh this is hacky! be aware that this overrides rubygems shipped with ruby19.
        names = [
           "nokogiri" "rake" "escape"
           "git"
@@ -310,7 +310,7 @@ let
     # usage: cd $(GEM="$1" nix-build -A ro.preview $NIXPKGS_ALL --no-out-link )
     preview =
       let spec = packageByNameAndConstraints { inherit specsByPlatformName;  cn = builtins.getEnv "GEM"; };
-      in  previewDerivation;
+      in  previewDerivation spec;
 
   };
 
