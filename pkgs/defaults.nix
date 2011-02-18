@@ -136,6 +136,7 @@ in rec {
             '';
         }
         args 
+        { name = "${args.name}-${args.version}"; }
       ]
       ));
     in

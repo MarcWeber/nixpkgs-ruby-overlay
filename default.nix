@@ -88,6 +88,9 @@ let
     in if matching == [] then throw "no spec satisfying name ${name} after applying filter and constraints. gem requesting dependency: ${depending}"
        else head matching;
 
+  attrsToP = attrs: spec:
+    if hasAttr spec.name attrs then specMatchesVersionConstraints spec (getAttr spec.name attrs)
+    else true;
 
   ### default implementation
 
@@ -128,7 +131,7 @@ let
 
           # returns { d =  { name = derivation; }; deepDeps = <set of deep dependencies>; }
           derivationByConstraint = visiting: depending: cn:
-            let spec = packageByNameAndConstraints { inherit platform specsByPlatformName depending cn; };
+            let spec = packageByNameAndConstraints { inherit platform specsByPlatformName depending cn p; };
 
                 # used in else, calculated lazily:
                 patchesList = optional (hasAttr full_name patches) (getAttr full_name patches)
@@ -169,7 +172,7 @@ let
 
     ### RUBY 1.8
 
-    rubyPackages18 = { names ? [], forceDeps ? []}:
+    rubyPackages18 = { names ? [], forceDeps ? [], p ? {}}:
       # duplication !!
       let defaults = ruby_defaults {
         inherit (pkgs) rubygems;
@@ -178,6 +181,7 @@ let
       in resolveRubyPkgDependencies {
         inherit (defaults) patches rubyDerivation;
         inherit names forceDeps specsByPlatformName;
+        p = attrsToP p;
       };
 
     # usage:
@@ -236,7 +240,7 @@ let
     }; 
     ### RUBY 1.9
 
-    rubyPackages19 = { names ? [], forceDeps ? []}:
+    rubyPackages19 = { names ? [], forceDeps ? [], p ? {}}:
     # duplication !!
       let defaults = ruby_defaults {
         rubygems = null; # is built into ruby-1.9
@@ -245,6 +249,7 @@ let
       in resolveRubyPkgDependencies {
         inherit (defaults) patches rubyDerivation;
         inherit names forceDeps specsByPlatformName;
+        p = attrsToP p;
       };
 
     # packages known to work:
@@ -285,7 +290,15 @@ let
 
     # example usage of a ruby environment you can load easily
     railsEnv = rubyEnv "rails-env" pkgs.ruby19 (lib.attrValues (rubyPackages19 {
-          names = [ "rake" "rails" "bundler"
+          p = {
+            # bundler= [["~>" "1.1.2" ]];
+            rails  = [["="  "3.0.3" ]]; # rake requires exactly this version ?
+            activesupport = [[ "=" "3.0.3" ]];
+            builder = [[ "=" "2.1.2" ]];
+          };
+          names = [ "rake" "rails" 
+              "bundler"
+              "builder"
 
               # comomnly used databases
               "sqlite3-ruby"
