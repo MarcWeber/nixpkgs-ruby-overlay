@@ -206,11 +206,11 @@ let
     # then you can put the libraries in ENV this way:
     # ruby-env-sup /bin/sh
     rubyEnv = rubyPackagesFor: {name ? "ruby", names ? [], p ? {} }:
-      let p = rubyPackagesFor { inherit names p; };
+      let px = rubyPackagesFor { inherit names p; };
       in pkgs.stdenv.mkDerivation {
         name = "ruby-wrapper-${name}";
-        buildInputs = p.all ++ p.tagged;
-        tagged = p.tagged;
+        buildInputs = px.all ++ px.tagged;
+        tagged = px.tagged;
         unpackPhase = ":";
         installPhase = ''
           ensureDir $out/bin
