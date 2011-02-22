@@ -48,7 +48,9 @@ let
                 attrValues concatLists mapAttrs nvs concatStringsSep fold concatStrings;
 
 
+  # functions contributing to package pool
   inherit (import ../nixpkgs-ruby-overlay-specs mainConfig) specsByPlatformName;
+  additionalPackages = (import pkgs/additional-packages.nix) pkgs.fetchurl;
 
   ### helper functions (reimplementation of gems verion matching)
 
@@ -76,13 +78,14 @@ let
 
   specMatchesVersionConstraints = spec: constraints: lib.all (specMatchesVersionConstraint spec) constraints;
 
-  packageByNameAndConstraints = { specsByPlatformName
+  packageByNameAndConstraints = { specsByPlatformNames
                                 , depending ? ""
                                 , cn # either ["rake"  [[">=" "0.4.4"]]] or just "rake"
                                 , platform ? "ruby"
                                 , p ? (x: true) # see resolveRubyPkgDependencies
                                 }:
-    let name = if isString cn then cn else head cn;
+    let specsByPlatformName = platform: name: lib.fold (a: b: b // a) {} (map (f: f platform name) specsByPlatformNames);
+        name = if isString cn then cn else head cn;
         constraints = if isString cn then [] else head (tail cn);
         specs = specsByPlatformName platform name;
         sortSpecsByVersion = list: 
@@ -111,13 +114,15 @@ let
   #
   # returns: list of derivation. attr names are package names (without version)
   resolveRubyPkgDependencies = { platform ? "ruby",  # platform. ruby tested only.
-                                  specsByPlatformName ? {}, # function taking a platform and a name returning specs by version attrs
+                                  specsByPlatformNames, # functions taking a platform and a name returning specs by version attrs
                                                          # mandatory keys: name, version, ...
                                   names ? [],   # the packages you'd like to use (list of names or ["name" [[version constraint]]])
                                   patches ? {}, # some dependencies require C extensions
                                   rubyDerivation ? (args: throw "no function specified"), # creates the derivation
                                   p ? (x: true),  # predicate which you can use to exclude versions
-                                  forceDeps ? [] # force additional deps - probably causing trouble. disabled
+                                  forceDeps ? [], # force additional deps - probably causing trouble. disabled
+                                  dropDeps ? ["win32-process" "win32-api"] # drop some runtime dependencies which don't make sense on linux
+                                                               # TODO there must be a smarter way to do this.
       }:
 
       assert forceDeps == []; # too experimental
@@ -136,7 +141,7 @@ let
 
           # returns { d =  { name = derivation; }; deepDeps = <set of deep dependencies>; }
           derivationByConstraint = visiting: depending: cn:
-            let spec = packageByNameAndConstraints { inherit platform specsByPlatformName depending cn p; };
+            let spec = packageByNameAndConstraints { inherit platform specsByPlatformNames depending cn p; };
 
                 # used in else, calculated lazily:
                 patchesList = optional (hasAttr full_name patches) (getAttr full_name patches)
@@ -146,7 +151,9 @@ let
                 full_name = "${spec.name}-${spec.version}";
                 # if don't add forcedDeps to forcedDeps which would result in cyclic depndencies
                 forcedDeps = lib.filter (x: !lib.elem (nameOf x) forcedNames) forceDeps;
-                cDeps = forcedDeps ++ spec.runtimeDependencies ++ (lib.maybeAttr "additionalRubyDependencies" [] patched_spec);
+                cDeps = 
+                  lib.filter (x: ! lib.elem (nameOf x) dropDeps)
+                         (forcedDeps ++ spec.runtimeDependencies ++ (lib.maybeAttr "additionalRubyDependencies" [] patched_spec));
                 deps = derivationsByConstraints ([spec.name] ++ visiting) full_name cDeps;
 
                 args = merge ([patched_spec { propagatedBuildInputs = attrValues deps.d; }]);
@@ -175,11 +182,17 @@ let
 
     inherit ruby_defaults;
 
-    rubyPackagesFor = { ruby, rubygems ? null, names ? [], forceDeps ? [], p ? {} }:
+    rubyPackagesFor = { ruby
+                      , rubygems ? null
+                      , names ? []
+                      , forceDeps ? []
+                      , p ? {}
+                      , specsByPlatformNames ? [ additionalPackages specsByPlatformName ]
+                      }:
       let defaults = ruby_defaults { inherit rubygems ruby; };
           resolved = resolveRubyPkgDependencies {
                       inherit (defaults) patches rubyDerivation;
-                      inherit names forceDeps specsByPlatformName;
+                      inherit names forceDeps specsByPlatformNames;
                       p = attrsToP p;
                     };
           # all packages of the dependency tree including ruby and rubygems
@@ -262,7 +275,7 @@ let
           "sup" # curses is distributed with ruby
           "xrefresh-server"
           "rspec"
-    ];
+      ];
     }.packages; 
     ### RUBY 1.9
 
@@ -300,7 +313,13 @@ let
           "ZenTest"
           "rake-compiler"
        ];
-   }.packages;
+    }.packages;
+
+    # simple env enough to run the gem nix command updating the dump
+    simpleEnv = rubyEnv19 {
+      name = "simple";
+      names = ["nixpkgs-ruby-overlay-gem-plugin"];
+    };
 
     # example usage of a ruby environment you can load easily
     railsEnv = rubyEnv19 {
@@ -315,6 +334,7 @@ let
           "rake" "rails" 
           "bundler"
           "builder"
+          "haml"
 
           # comomnly used databases
           "sqlite3-ruby"

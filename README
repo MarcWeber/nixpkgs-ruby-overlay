@@ -1,0 +1,17 @@
+You also have to checkout nixpkgs-ruby-overlay-specs beneath this directory
+
+gem puligin creating the dump [1]:
+
+Run it this way:
+
+install simpleEnv
+ruby-env-simple gem nixpkgsoverlay $TARGET
+
+where $TARGET is a checkout of nixpkgs-ruby-overlay-specs [2] because it contais a
+huge files with fetched hashes.
+
+Of course you can refetch everything from scratch but it'll take several hours
+
+
+[1] http://gitorious.org/nixpkgs-ruby-overlay/nixpkgs-ruby-overlay-gem-plugin
+[2] http://gitorious.org/nixpkgs-ruby-overlay/nixpkgs-ruby-overlay-specs
