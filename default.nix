@@ -42,7 +42,8 @@ let
   lib = pkgs.lib;
   getConfig = pkgs.getConfig;
 
-  inherit (builtins) attrNames head tail compareVersions lessThan filter hasAttr getAttr toXML isString;
+  inherit (builtins) attrNames head tail compareVersions lessThan filter
+          hasAttr getAttr toXML isString add;
 
   inherit (lib) attrSingleton mergeAttrsByFuncDefaults optional listToAttrs
                 attrValues concatLists mapAttrs nvs concatStringsSep fold concatStrings;
@@ -62,9 +63,26 @@ let
   # spec must have version and bump attributes
   specMatchesVersionConstraint = spec: c:
     let
+        dotCount = s: c: if s == "" then c else
+          let h = builtins.substring 0 1 s;
+              t = builtins.substring 1 9999 s;
+          in dotCount t (builtins.add c (if h == "." then 1 else 0));
+        # first number is always major. nix's compare function dosen't
+        # understand this so append .0 until both versions have the same amount of "."
+        add0s = v: is_c: target_c:
+          if builtins.lessThan is_c target_c then
+            "${add0s v (add is_c 1) target_c}.0"
+          else v;
+
+        spec_v = spec.version;
+        compare_v = head (tail c);
+        spec_c = dotCount spec_v 0;
+        compare_c = dotCount compare_v 0;
+        spec_v_eq = add0s spec_v spec_c compare_c;
+        compare_v_eq = add0s compare_v compare_c spec_c;
+
         op = head c;
-        v = head (tail c);
-        x = compareVersions spec.version v;
+        x = compareVersions spec_v_eq compare_v_eq;
         fs = {
           "="  = x == 0;
           "!=" = x != 0;
@@ -72,9 +90,11 @@ let
           "<"  = lessThan x 0;
           ">=" = x == 0 || lessThan 0 x;
           "<=" = x == 0 || lessThan x 0;
-          "~>" = (lessThan 0 x || x == 0) && lessThan 0 (compareVersions spec.bump v);
+          "~>" = (lessThan 0 x || x == 0) && lessThan 0 (compareVersions spec.bump compare_v_eq);
         };
-     in getAttr op fs;
+     in let r = getAttr op fs;
+        in # builtins.trace "${spec.name} ${op} ${compare_v} matches ? ${spec.version} ${if r then "y" else "n"}" 
+           r;
 
   specMatchesVersionConstraints = spec: constraints: lib.all (specMatchesVersionConstraint spec) constraints;
 
