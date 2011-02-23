@@ -10,7 +10,7 @@ fetchurl: platform: name:
       dependencies =        [  ];
       src = fetchurl {
         url = http://mawercer.de/~marc/nixpgks-ruby-overlay-gem-plugin-0.2.gem;
-        sha256 = "0mj5ik0dkzvyv1l3am5i4vaxx4jwnv0rb2yp2dcjq8jvscaav02a";
+        sha256 = "08xm3fnsh9p08h1bzwz416hfn1lwndj8ym17llai28h5b8jiavy1";
       };
       meta = {
         homepage = "http://gitorious.org/nixpkgs-ruby-overlay/nixpkgs-ruby-overlay-gem-plugin";
