@@ -69,6 +69,7 @@ let
           in dotCount t (builtins.add c (if h == "." then 1 else 0));
         # first number is always major. nix's compare function dosen't
         # understand this so append .0 until both versions have the same amount of "."
+        # is this correct? think about it again! It fixed my case
         add0s = v: is_c: target_c:
           if builtins.lessThan is_c target_c then
             "${add0s v (add is_c 1) target_c}.0"
@@ -250,7 +251,7 @@ let
           b=$out/bin/ruby-env-${name}
           cat >> $b << EOF
           #!/bin/sh
-          if [ "$1" == "--clean" ]; then
+          if [ "\$1" == "--clean" ]; then
             shift
             unset RUBYLIB
             unset GEM_PATH

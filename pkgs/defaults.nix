@@ -18,10 +18,17 @@ in rec {
   # either the nameNoVersion or name must match
   # does it make a difference whether you use ruby 1.8 or ruby 1.9 ? Probably yes
   patches = {
-    sup = {
-      additionalRubyDependencies = ["ncursesw"];
-      buildInputs = [ pkgs.xapianBindings ];
+    ffi = {
+      postUnpack = "onetuh";
+      additionalRubyDependencies = [ "rake" ];
+      buildFlags=["--with-ffi-dir=${pkgs.libffi}"];
+      NIX_POST_EXTRACT_FILES_HOOK = patchUsrBinEnv;
     };
+
+    linecache19 = {
+      buildFlags = [ "--with-ruby-include=${ruby}" ];
+    };
+
     # rails = {
     #   gemFlags = "--no-ri --no-rdoc";
     #   additionalRubyDependencies = [ "mime_types" ];
@@ -38,27 +45,32 @@ in rec {
       gemFlags =[ "--no-ri" "--no-rdoc" ]; # can't bootstrap itself yet (TODO)
     };
 
-    ffi = {
-      postUnpack = "onetuh";
-      additionalRubyDependencies = [ "rake" ];
-      buildFlags=["--with-ffi-dir=${pkgs.libffi}"];
-      NIX_POST_EXTRACT_FILES_HOOK = patchUsrBinEnv;
+    "sqlite3" = { 
+      buildInputs = [ pkgs.sqlite ];
+      # buildFlags = [ "--with-sqlite3-dir=${pkgs.sqlite}" "--with-sqlite3-include=${pkgs.sqlite}/include" "--with-sqlite3-lib=${pkgs.sqlite}/lib" ];
+    };
+    sqlite3_ruby = { propagatedBuildInputs = [ pkgs.sqlite ]; };
+
+
+    sup = {
+      additionalRubyDependencies = ["ncursesw"];
+      buildInputs = [ pkgs.xapianBindings ];
     };
 
     "xrefresh-server" =
-    let patch = fetchurl {
-        url = "http://mawercer.de/~nix/xrefresh.diff.gz";
-        sha256 = "1f7bnmn1pgkmkml0ms15m5lx880hq2sxy7vsddb3sbzm7n1yyicq";
-      };
-    in {
-      additionalRubyDependencies = [ "rb-inotify" ];
+      let patch = fetchurl {
+          url = "http://mawercer.de/~nix/xrefresh.diff.gz";
+          sha256 = "1f7bnmn1pgkmkml0ms15m5lx880hq2sxy7vsddb3sbzm7n1yyicq";
+        };
+      in {
+        additionalRubyDependencies = [ "rb-inotify" ];
 
-      # monitor implementation for Linux
-      postInstall = ''
-        cd $out/gems/*;
-        cat ${patch} | gunzip | patch -p 1;
-      '';
-    };
+        # monitor implementation for Linux
+        postInstall = ''
+          cd $out/gems/*;
+          cat ${patch} | gunzip | patch -p 1;
+        '';
+      };
 
     "xapian-full" = {
       gemFlags = [ "--no-rdoc" ]; # compiling for ruby1.9 fails with: ERROR:  While executing gem ... (Encoding::UndefinedConversionError) U+2019 from UTF-8 to US-ASCII
@@ -66,11 +78,6 @@ in rec {
       buildInputs = [ pkgs.zlib pkgs.libuuid ];
     };
 
-    "sqlite3" = { 
-      buildInputs = [ pkgs.sqlite ];
-      # buildFlags = [ "--with-sqlite3-dir=${pkgs.sqlite}" "--with-sqlite3-include=${pkgs.sqlite}/include" "--with-sqlite3-lib=${pkgs.sqlite}/lib" ];
-    };
-    sqlite3_ruby = { propagatedBuildInputs = [ pkgs.sqlite ]; };
   };
 
 
