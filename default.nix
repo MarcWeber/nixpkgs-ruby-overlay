@@ -273,7 +273,7 @@ let
 
 
     # packages known to work:
-    tested18 = rubyPackages18 {
+    tested18 = (rubyPackages18 {
        names = [
           "nokogiri" "rake" "escape"
           "git"
@@ -297,11 +297,11 @@ let
           "xrefresh-server"
           "rspec"
       ];
-    }.packages; 
+    }).packages; 
     ### RUBY 1.9
 
     # packages known to work:
-    tested19 = rubyPackages19 {
+    tested19 = (rubyPackages19 {
        names = [
           "nokogiri" "rake" "escape"
           "git"
@@ -334,7 +334,7 @@ let
           "ZenTest"
           "rake-compiler"
        ];
-    }.packages;
+    }).packages;
 
     # simple env enough to run the gem nix command updating the dump
     simpleEnv = rubyEnv19 {
@@ -382,6 +382,8 @@ let
       in  previewDerivation spec;
 
     taggingTest = tag pkgs.ruby19;
+
+    xrefreshServer = tested19."xrefresh-server";
 
   };
 
