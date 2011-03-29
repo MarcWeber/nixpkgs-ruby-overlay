@@ -256,7 +256,7 @@ let
             unset RUBYLIB
             unset GEM_PATH
           fi
-          export RUBYLIB=$RUBYLIB\''${RUBYLIB:+}\$RUBYLIB
+          export RUBYLIB=$RUBYLIB\''${RUBYLIB:+:}\$RUBYLIB
           export GEM_PATH=$GEM_PATH\''${GEM_PATH:+:}\$GEM_PATH
           export PATH=$PATH\''${PATH:+:}\$PATH
           export TAG_FILES=$TAG_FILES\''${TAG_FILES:+:}\$TAG_FILES
