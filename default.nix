@@ -279,7 +279,7 @@ let
           "git"
           "hoe"
           "rubyforge"
-          "json-pure"
+          "json_pure"
           "chronic"
           "rubygems-update"
           "jeweler"
@@ -383,7 +383,7 @@ let
 
     taggingTest = tag pkgs.ruby19;
 
-    xrefreshServer = tested19."xrefresh-server";
+    xrefreshServer = tested18."xrefresh-server";
 
   };
 
