@@ -1,7 +1,7 @@
 fetchurl: platform: name:
 let packages = {
       # REGION GEM: { name="nixpkgs-ruby-overlay-gem-plugin"; type="git"; url="git://gitorious.org/nixpkgs-ruby-overlay/nixpkgs-ruby-overlay-gem-plugin.git"; }
-        "nixpgks-ruby-overlay-gem-plugin"."0.2" = {
+        "nixpkgs-ruby-overlay-gem-plugin"."0.2" = {
           # spec.date: 2011-03-30 00:00:00 +0200
           name = "nixpgks-ruby-overlay-gem-plugin";
           version = "0.2";
