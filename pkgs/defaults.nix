@@ -24,10 +24,8 @@ in rec {
       buildFlags=["--with-ffi-dir=${pkgs.libffi}"];
       NIX_POST_EXTRACT_FILES_HOOK = patchUsrBinEnv;
     };
-
-    linecache19 = {
-      buildFlags = [ "--with-ruby-include=${ruby}" ];
-    };
+    linecache19 = { buildFlags = [ "--with-ruby-include=${ruby}/src"]; };
+    "ruby-debug-base19" = { buildFlags = [ "--with-ruby-include=${ruby}/src"]; };
 
     # rails = {
     #   gemFlags = "--no-ri --no-rdoc";
@@ -56,6 +54,8 @@ in rec {
       additionalRubyDependencies = ["ncursesw"];
       buildInputs = [ pkgs.xapianBindings ];
     };
+
+    "ruby-debug19" = { buildFlags = [ "--with-ruby-include=${ruby}/src" ]; };
 
     "xrefresh-server" =
       let patch = fetchurl {
