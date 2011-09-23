@@ -39,6 +39,8 @@ in rec {
                   "--with-xslt-dir=${pkgs.libxslt}" ];
     };
 
+    psych = { buildInputs = [ pkgs.libyaml ]; };
+
     rdoc = {
       gemFlags =[ "--no-ri" "--no-rdoc" ]; # can't bootstrap itself yet (TODO)
     };
@@ -76,6 +78,18 @@ in rec {
       gemFlags = [ "--no-rdoc" ]; # compiling for ruby1.9 fails with: ERROR:  While executing gem ... (Encoding::UndefinedConversionError) U+2019 from UTF-8 to US-ASCII
       additionalRubyDependencies = [ "rake" "rdoc" ];
       buildInputs = [ pkgs.zlib pkgs.libuuid ];
+    };
+    "xapian" = {
+      gemFlags = [ "--no-rdoc" ]; # compiling for ruby1.9 fails with: ERROR:  While executing gem ... (Encoding::UndefinedConversionError) U+2019 from UTF-8 to US-ASCII
+      additionalRubyDependencies = [ "rake" "rdoc" ];
+      buildInputs = [ pkgs.xapian  pkgs.gnused pkgs.libtool ];
+
+      NIX_POST_EXTRACT_FILES_HOOK = writeScript "path-bin" ''
+        #!/bin/sh
+        set -x
+        find "$1" -type f -name "*.rb" | xargs sed -i "s@/bin/sed@$(type -p sed)@g"
+      '';
+
     };
 
   };
