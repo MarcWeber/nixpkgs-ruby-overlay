@@ -76,12 +76,6 @@ let
           else v;
 
 
-        # hack: rewrite
-        add9s = v: is_c: target_c:
-          if builtins.lessThan is_c target_c then
-            "${add0s v (add is_c 1) target_c}.99999"
-          else v;
-
         spec_v = spec.version;
         compare_v = head (tail c);
         spec_c = dotCount spec_v 0;
@@ -141,12 +135,12 @@ let
                   in h 0 0 0;
 
 
-              upper = add9s (lib.traceCall "drop_last_dot_inc" drop_last_dot_inc compare_v) (builtins.sub spec_c 1) compare_c;
+              upper = add0s (drop_last_dot_inc compare_v) (builtins.sub spec_c 1) compare_c;
 
               p_upper = lessThan 0 (compareVersions upper spec_v_eq);
               p = x == 0 || lessThan 0 x;
               r = p_upper && p; # but less than upper constraint given by ~
-            in builtins.trace "upper ${upper} p ${builtins.toString p} p_upper ${builtins.toString p_upper} ${spec.name} ~${spec.bump} v${spec.version} required ${compare_v_eq} ${builtins.toString r}" r;
+            in r;
         };
      in let r = getAttr op fs;
         in # builtins.trace "${spec.name} ${op} ${compare_v} matches ? ${spec.version} ${if r then "y" else "n"}" 
@@ -217,7 +211,10 @@ let
 
           # returns { d =  { name = derivation; }; deepDeps = <set of deep dependencies>; }
           derivationByConstraint = visiting: depending: cn:
-            let spec = packageByNameAndConstraints { inherit platform specsByPlatformNames depending cn p; };
+            let spec = packageByNameAndConstraints {
+                  inherit platform specsByPlatformNames cn p;
+                  depending = lib.concatStringsSep "->" ([depending] ++ visiting);
+                };
 
                 # used in else, calculated lazily:
                 patchesList = optional (hasAttr full_name patches) (getAttr full_name patches)
