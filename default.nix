@@ -75,6 +75,13 @@ let
             "${add0s v (add is_c 1) target_c}.0"
           else v;
 
+
+        # hack: rewrite
+        add9s = v: is_c: target_c:
+          if builtins.lessThan is_c target_c then
+            "${add0s v (add is_c 1) target_c}.99999"
+          else v;
+
         spec_v = spec.version;
         compare_v = head (tail c);
         spec_c = dotCount spec_v 0;
@@ -91,7 +98,55 @@ let
           "<"  = lessThan x 0;
           ">=" = x == 0 || lessThan 0 x;
           "<=" = x == 0 || lessThan x 0;
-          "~>" = (lessThan 0 x || x == 0) && lessThan 0 (compareVersions spec.bump compare_v_eq);
+          "~>" = 
+            let 
+
+              # TODO rewrite as builtin
+              str2int = s:
+                let 
+                    len = builtins.stringLength s;
+                    c2int = c:
+                    if c == "0" then 0
+                    else if c == "1" then 1
+                    else if c == "2" then 2
+                    else if c == "3" then 3
+                    else if c == "4" then 4
+                    else if c == "5" then 5
+                    else if c == "6" then 6
+                    else if c == "7" then 7
+                    else if c == "8" then 8
+                    else if c == "9" then 9
+                    else throw "unexpected char ${c}";
+
+                    h = p:
+                      let i = c2int (builtins.substring p 1 s);
+                          p_plus_1 = builtins.add p 1;
+                      in
+                        if (p_plus_1 == len) then i
+                        else builtins.add (builtins.mul 10 i) (h p_plus_1);
+                in h 0;
+
+              # add regex to builtins ..
+              # drops last minor number. adds 1 to the number before the last. This implements the ~> feature of ruby's versions
+              drop_last_dot_inc = s:
+                  let 
+                    len = builtins.stringLength s;
+                    h = dp1: dp2: pos:
+                        if pos == len then
+                            let dp1_p_1 = if dp1 == 0 then 0 else builtins.add dp1 1;
+                            in (builtins.substring 0 dp1_p_1 s) + (builtins.toString (builtins.add 1 (str2int (builtins.substring dp1_p_1 (builtins.sub dp2 dp1_p_1) s))))
+                        else if (builtins.substring pos 1 s) == "."
+                              then h dp2 pos (builtins.add pos 1)
+                              else h dp1 dp2 (builtins.add pos 1);
+                  in h 0 0 0;
+
+
+              upper = add9s (lib.traceCall "drop_last_dot_inc" drop_last_dot_inc compare_v) (builtins.sub spec_c 1) compare_c;
+
+              p_upper = lessThan 0 (compareVersions upper spec_v_eq);
+              p = x == 0 || lessThan 0 x;
+              r = p_upper && p; # but less than upper constraint given by ~
+            in builtins.trace "upper ${upper} p ${builtins.toString p} p_upper ${builtins.toString p_upper} ${spec.name} ~${spec.bump} v${spec.version} required ${compare_v_eq} ${builtins.toString r}" r;
         };
      in let r = getAttr op fs;
         in # builtins.trace "${spec.name} ${op} ${compare_v} matches ? ${spec.version} ${if r then "y" else "n"}" 
@@ -294,7 +349,6 @@ let
           "net-ssh"
           "mime-types"
           "sup" # curses is distributed with ruby
-          "xrefresh-server"
           "rspec"
       ];
     }).packages; 
@@ -321,7 +375,6 @@ let
           "net-ssh"
           "mime-types"
           # "sup" # requires ncurses wich doesn't copmile (?)
-          "xrefresh-server"
           "rspec"
           "ffi"
           "xapian-full"
@@ -382,8 +435,6 @@ let
       in  previewDerivation spec;
 
     taggingTest = tag pkgs.ruby19;
-
-    xrefreshServer = tested18."xrefresh-server";
 
   };
 

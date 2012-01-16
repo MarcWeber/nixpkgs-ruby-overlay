@@ -18,6 +18,8 @@ in rec {
   # either the nameNoVersion or name must match
   # does it make a difference whether you use ruby 1.8 or ruby 1.9 ? Probably yes
   patches = {
+
+    builder = { gemFlags = "--no-ri --no-rdoc"; };
     ffi = {
       postUnpack = "onetuh";
       additionalRubyDependencies = [ "rake" ];
@@ -27,16 +29,20 @@ in rec {
     linecache19 = { buildFlags = [ "--with-ruby-include=${ruby}/src"]; };
     "ruby-debug-base19" = { buildFlags = [ "--with-ruby-include=${ruby}/src"]; };
 
-    # rails = {
-    #   gemFlags = "--no-ri --no-rdoc";
-    #   additionalRubyDependencies = [ "mime_types" ];
-    #   propagatedBuildInputs = [ libs.mime_types libs.rake ];
-    # };
+
+    mysql = {
+      buildInputs = [ pkgs.mysql pkgs.zlib ];
+    };
+
     ncurses = { buildInputs = [ pkgs.ncurses ]; };
     ncursesw = { buildInputs = [ pkgs.ncurses ]; };
     nokogiri = {
       buildFlags=["--with-xml2-dir=${pkgs.libxml2} --with-xml2-include=${pkgs.libxml2}/include/libxml2"
                   "--with-xslt-dir=${pkgs.libxslt}" ];
+    };
+
+    postgres = {
+      buildInputs = [ pkgs.postgresql ];
     };
 
     psych = { buildInputs = [ pkgs.libyaml ]; };
@@ -55,6 +61,15 @@ in rec {
     sup = {
       additionalRubyDependencies = ["ncursesw"];
       buildInputs = [ pkgs.xapianBindings ];
+    };
+
+    # rails = {
+    #   gemFlags = [ "--no-rdoc" ]; # fails with sed symlink
+    # };
+    rails = {
+      gemFlags = "--no-ri --no-rdoc";
+      # additionalRubyDependencies = [ "mime_types" ];
+      propagatedBuildInputs = [ /*libs.mime_types libs.rake */ ];
     };
 
     "ruby-debug19" = { buildFlags = [ "--with-ruby-include=${ruby}/src" ]; };
@@ -134,13 +149,18 @@ in rec {
               . $out/nix-support/setup-hook
 
               for prog in $out/bin/*; do
+                [ -d "$prog" ] || \
                 wrapProgram "$prog" \
                   --prefix RUBYLIB : "$RUBYLIB"${ if rubygems == null then "" else ":${rubygems}/lib" } \
                   --prefix GEM_PATH : "$GEM_PATH" \
                   --set RUBYOPT 'rubygems'
               done
 
-              for prog in $out/gems/*/bin/*; do
+              for prog in $out/gems/*/bin/* $out/gems/*/bin/*/*; do
+                # there is rails-2.3.5/gems/rails-2.3.5/bin/performance/* thus use */* :-(
+                # should be using find here?
+                [ -d "$prog" ] && continue || true
+
                 [ -e "$out/bin/$(basename $prog)" ] && continue || true
                 sed -i '1s@.*@#!  ${ruby}/bin/ruby@' "$prog"
                 t="$out/bin/$(basename "$prog")"
