@@ -26,7 +26,12 @@ in rec {
       buildFlags=["--with-ffi-dir=${pkgs.libffi}"];
       NIX_POST_EXTRACT_FILES_HOOK = patchUsrBinEnv;
     };
-    linecache19 = { buildFlags = [ "--with-ruby-include=${ruby}/src"]; };
+    linecache19 = {
+      # preConfigure = ''
+      #   PATH=${ruby.hidden}/bin:$PATH
+      # '';
+      buildFlags = [ "--with-ruby-include=${ruby}/include"];
+    };
     "ruby-debug-base19" = { buildFlags = [ "--with-ruby-include=${ruby}/src"]; };
 
 
@@ -41,6 +46,10 @@ in rec {
                   "--with-xslt-dir=${pkgs.libxslt}" ];
     };
 
+    do_postgres = {
+      buildInputs = [ pkgs.postgresql ];
+    };
+
     postgres = {
       buildInputs = [ pkgs.postgresql ];
     };
@@ -50,6 +59,8 @@ in rec {
     rdoc = {
       gemFlags =[ "--no-ri" "--no-rdoc" ]; # can't bootstrap itself yet (TODO)
     };
+
+    "do_sqlite3" = { buildInputs = [ pkgs.sqlite ]; };
 
     "sqlite3" = { 
       buildInputs = [ pkgs.sqlite ];
