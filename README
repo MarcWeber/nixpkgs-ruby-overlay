@@ -1,6 +1,6 @@
 You also have to checkout nixpkgs-ruby-overlay-specs beneath this directory
 
-gem puligin creating the dump [1]:
+gem plugin creating the dump [1]:
 
 Run it this way:
 

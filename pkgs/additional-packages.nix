@@ -10,7 +10,8 @@ let packages = {
           developmentDependencies = [  ];
           runtimeDependencies = [  ];
           dependencies =        [  ];
-          src = (fetchurl { url = "http://mawercer.de/~nix/repos/nixpkgs-ruby-overlay-gem-plugin-2.0-git-2366f.gem"; sha256 = "661d11e44d70fa6421a49813c603f72d38f5625b44ec16c0f1e7c462186876b8"; });
+          src = (fetchurl { url = "http://mawercer.de/~nix/repos/nixpkgs-ruby-overlay-gem-plugin-2.0-git-2366f.gem"; sha256 = "861088995409971f82df97ce62b1cb5b20996da2b96f50cf05982448ee24dcab"; });
+
           meta = {
             homepage = "http://gitorious.org/nixpkgs-ruby-overlay/nixpkgs-ruby-overlay-gem-plugin";
             license = []; # one of ?

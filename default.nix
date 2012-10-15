@@ -40,7 +40,6 @@ let
   # pkgs, lib, getConfig from nixpkgs:
   pkgs = import nixpkgs mainConfig;
   lib = pkgs.lib;
-  getConfig = pkgs.getConfig;
 
   inherit (builtins) attrNames head tail compareVersions lessThan filter
           hasAttr getAttr toXML isString add;
@@ -279,7 +278,7 @@ let
 
         # all + with tags
         all = allP;
-        tagged = lib.optionals (pkgs.getConfig ["ruby" "tags"] false)
+        tagged = lib.optionals (pkgs.config.ruby.tags or false)
                                (map tag allP);
       };
 
