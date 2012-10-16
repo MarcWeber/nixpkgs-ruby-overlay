@@ -26,6 +26,10 @@ in rec {
       buildFlags=["--with-ffi-dir=${pkgs.libffi}"];
       NIX_POST_EXTRACT_FILES_HOOK = patchUsrBinEnv;
     };
+    libv8 = {
+      buildInputs = [ pkgs.python pkgs.v8 ];
+    };
+
     linecache19 = {
       # preConfigure = ''
       #   PATH=${ruby.hidden}/bin:$PATH
@@ -36,6 +40,9 @@ in rec {
 
 
     mysql = {
+      buildInputs = [ pkgs.mysql pkgs.zlib ];
+    };
+    mysqlplus = {
       buildInputs = [ pkgs.mysql pkgs.zlib ];
     };
 

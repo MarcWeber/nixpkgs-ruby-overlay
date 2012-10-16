@@ -131,7 +131,9 @@ let
                         else if (builtins.substring pos 1 s) == "."
                               then h dp2 pos (builtins.add pos 1)
                               else h dp1 dp2 (builtins.add pos 1);
-                  in h 0 0 0;
+                  in 
+                    builtins.addErrorContext "while finding upper bound of ${s}"
+                    h 0 0 0;
 
 
               upper = add0s (drop_last_dot_inc compare_v) (builtins.sub spec_c 1) compare_c;
@@ -290,8 +292,8 @@ let
     # rubyEnv [ "sup" "hoe" "rails" ];
     # then you can put the libraries in ENV this way:
     # ruby-env-sup /bin/sh
-    rubyEnv = rubyPackagesFor: {name ? "ruby", names ? [], p ? {} }:
-      let px = rubyPackagesFor { inherit names p; };
+    rubyEnv = rubyPackagesFor: a@{name ? "ruby", names ? [], p ? {}, ... /* ruby = pkgs.ruby19.overwrite { version = .. } */ }:
+      let px = rubyPackagesFor (builtins.removeAttrs a ["name"]);
       in pkgs.stdenv.mkDerivation {
         name = "ruby-wrapper-${name}";
         buildInputs = px.all ++ px.tagged;
