@@ -45,6 +45,9 @@ in rec {
     mysqlplus = {
       buildInputs = [ pkgs.mysql pkgs.zlib ];
     };
+    do_mysql = {
+      buildInputs = [ pkgs.mysql pkgs.zlib ];
+    };
 
     ncurses = { buildInputs = [ pkgs.ncurses ]; };
     ncursesw = { buildInputs = [ pkgs.ncurses ]; };
@@ -65,6 +68,18 @@ in rec {
 
     rdoc = {
       gemFlags =[ "--no-ri" "--no-rdoc" ]; # can't bootstrap itself yet (TODO)
+    };
+
+    rubyuno = {
+
+    };
+
+    rugged = {
+      buildInputs = [ pkgs.libgit2 pkgs.zlib pkgs.which ];
+      buildFlags = [
+        "--without-opt-include=${pkgs.libgit2}/include:"
+        "--without-opt-lib=${pkgs.libgit2}/lib"
+      ];
     };
 
     "do_sqlite3" = { buildInputs = [ pkgs.sqlite ]; };

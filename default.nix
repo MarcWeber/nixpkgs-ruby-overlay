@@ -304,7 +304,7 @@ let
           b=$out/bin/ruby-env-${name}
           cat >> $b << EOF
           #!/bin/sh
-          if [ "\$1" == "--clean" ]; then
+          if [[ "\$1" == "--clean" ]]; then
             shift
             unset RUBYLIB
             unset GEM_PATH
