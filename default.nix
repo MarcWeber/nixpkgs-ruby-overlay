@@ -91,7 +91,7 @@ let
           "<"  = lessThan x 0;
           ">=" = x == 0 || lessThan 0 x;
           "<=" = x == 0 || lessThan x 0;
-          "~>" = 
+          "~>" =
             let 
 
               # TODO rewrite as builtin
@@ -139,7 +139,7 @@ let
               upper = add0s (drop_last_dot_inc compare_v) (builtins.sub spec_c 1) compare_c;
 
               p_upper = lessThan 0 (compareVersions upper spec_v_eq);
-              p = x == 0 || lessThan 0 x;
+              p = lessThan x 0 || x == 0;
               r = p_upper && p; # but less than upper constraint given by ~
             in r;
         };
@@ -159,12 +159,15 @@ let
         name = if isString cn then cn else head cn;
         constraints = if isString cn then [] else head (tail cn);
         specs = specsByPlatformName platform name;
-        sortSpecsByVersion = list: 
+        sortSpecsByVersion = list:
           if list == [] 
           then []
-          else lib.sort (a: b: builtins.lessThan 0 (builtins.compareVersions a.version b.version)) list;
-        matching = lib.filter (spec: p spec && specMatchesVersionConstraints spec constraints) (sortSpecsByVersion (lib.attrValues specs));
-    in if matching == [] then throw "no spec satisfying name ${name} after applying filter and constraints. gem requesting dependency: ${depending}"
+          else lib.sort (a: b: (builtins.compareVersions b.version a.version) == 1 ) list;
+        sorted = (sortSpecsByVersion (lib.attrValues specs));
+        matching = lib.filter (spec: p spec && specMatchesVersionConstraints spec constraints) sorted;
+    in if matching == [] then throw ( "No spec satisfying name ${name} (${builtins.toXML constraints}) after applying filter and constraints. gem requesting dependency: ${depending}."
+                                    + " known versions: ${lib.concatStringsSep ", " (map (x: x.version) (attrValues specs))}"
+                                    )
        else head matching;
 
   attrsToP = attrs: spec:
@@ -433,6 +436,38 @@ let
       in  previewDerivation spec;
 
     taggingTest = tag pkgs.ruby19;
+
+    tests = lib.traceXMLVal (lib.runTests {
+      test_specMatchesVersionConstraint =
+        let named = version: { name = "foo"; inherit version; };
+            bumped = version: bump: { name = "foo"; inherit version bump; };
+            cmpOrder = v1: op: v2:
+              (specMatchesVersionConstraint (named v1) [op v2])
+              && !  (specMatchesVersionConstraint (named v2) [op v1]);
+
+        in
+        lib.testAllTrue [
+        (specMatchesVersionConstraint (named "3.0.4") ["=" "3.0.4"])
+        (specMatchesVersionConstraint (named "3.0.0") ["=" "3.0"])
+
+        (cmpOrder "3.0.4" "<" "3.0.10")
+        (cmpOrder "3.0.12" ">" "3.0.10")
+
+        (cmpOrder "3.0.10" "<" "3.2.10")
+        (cmpOrder "3.2.10" ">" "3.0.10")
+
+        (cmpOrder "3.0.10" "<" "5.0.10")
+        (cmpOrder "5.0.10" ">" "3.0.10")
+
+        (specMatchesVersionConstraint (bumped "1.5.1" "1.5") ["~>" "1.5.1"])
+
+        (specMatchesVersionConstraint (bumped "2.2.0" "2.3") ["~>" "2.2.2"])
+        (specMatchesVersionConstraint (bumped "2.2.0" "2.3") ["~>" "2.2"])
+        (specMatchesVersionConstraint (bumped "2.2" "2.3") ["~>" "2.2.0"])
+
+        (!specMatchesVersionConstraint (bumped "2.3.0" "2.3") ["~>" "2.2.2"])
+        ];
+    });
 
   };
 
