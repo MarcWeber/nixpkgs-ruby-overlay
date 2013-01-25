@@ -77,7 +77,7 @@ in rec {
     rugged = {
       buildInputs = [ pkgs.libgit2 pkgs.zlib pkgs.which ];
       buildFlags = [
-        "--without-opt-include=${pkgs.libgit2}/include:"
+        "--without-opt-include=${pkgs.libgit2}/include"
         "--without-opt-lib=${pkgs.libgit2}/lib"
       ];
     };
@@ -94,6 +94,17 @@ in rec {
     sup = {
       additionalRubyDependencies = ["ncursesw"];
       buildInputs = [ pkgs.xapianBindings ];
+    };
+
+    tarruby = {
+      buildInputs = [ pkgs.libtar pkgs.zlib ];
+
+      NIX_CFLAGS_COMPILE="-fPIC";
+
+      # buildFlags = [
+      #   "--without-opt-include=${pkgs.libtar}/include"
+      #   "--without-opt-lib=${pkgs.libtar}/lib"
+      # ];
     };
 
     # rails = {

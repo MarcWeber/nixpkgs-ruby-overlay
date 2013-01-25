@@ -56,7 +56,7 @@ let
 
   tag = pkg:
     let sAT = pkgs.sourceAndTags;
-    in sAT.sourceWithTagsDerivation (sAT.sourceWithTagsFromDerivation (sAT.addRubyTagingInfo pkg));
+    in sAT.sourceWithTagsDerivation (sAT.sourceWithTagsFromDerivation (sAT.addRubyTaggingInfo pkg));
 
   # version something like ["=" "3.0.4"]
   # spec must have version and bump attributes
@@ -139,7 +139,7 @@ let
               upper = add0s (drop_last_dot_inc compare_v) (builtins.sub spec_c 1) compare_c;
 
               p_upper = lessThan 0 (compareVersions upper spec_v_eq);
-              p = lessThan x 0 || x == 0;
+              p = lessThan 0 x || x == 0;
               r = p_upper && p; # but less than upper constraint given by ~
             in r;
         };
@@ -162,9 +162,11 @@ let
         sortSpecsByVersion = list:
           if list == [] 
           then []
-          else lib.sort (a: b: (builtins.compareVersions b.version a.version) == 1 ) list;
+          else lib.sort (a: b: (builtins.compareVersions a.version b.version) == 1 ) list;
         sorted = (sortSpecsByVersion (lib.attrValues specs));
-        matching = lib.filter (spec: p spec && specMatchesVersionConstraints spec constraints) sorted;
+        matching = 
+        assert (builtins.length sorted) == (builtins.length (lib.attrValues specs));
+        lib.filter (spec: p spec && specMatchesVersionConstraints spec constraints) sorted;
     in if matching == [] then throw ( "No spec satisfying name ${name} (${builtins.toXML constraints}) after applying filter and constraints. gem requesting dependency: ${depending}."
                                     + " known versions: ${lib.concatStringsSep ", " (map (x: x.version) (attrValues specs))}"
                                     )
@@ -447,6 +449,8 @@ let
 
         in
         lib.testAllTrue [
+        (specMatchesVersionConstraint (bumped "1.0.11" "1.1") ["~>" "1.0.9"])
+
         (specMatchesVersionConstraint (named "3.0.4") ["=" "3.0.4"])
         (specMatchesVersionConstraint (named "3.0.0") ["=" "3.0"])
 
@@ -461,7 +465,7 @@ let
 
         (specMatchesVersionConstraint (bumped "1.5.1" "1.5") ["~>" "1.5.1"])
 
-        (specMatchesVersionConstraint (bumped "2.2.0" "2.3") ["~>" "2.2.2"])
+          (!specMatchesVersionConstraint (bumped "2.2.0" "2.3") ["~>" "2.2.2"])
         (specMatchesVersionConstraint (bumped "2.2.0" "2.3") ["~>" "2.2"])
         (specMatchesVersionConstraint (bumped "2.2" "2.3") ["~>" "2.2.0"])
 
