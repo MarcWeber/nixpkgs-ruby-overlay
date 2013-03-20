@@ -23,11 +23,19 @@ in rec {
     ffi = {
       postUnpack = "onetuh";
       additionalRubyDependencies = [ "rake" ];
+      buildInputs = [ pkgs.libffi ];
       buildFlags=["--with-ffi-dir=${pkgs.libffi}"];
       NIX_POST_EXTRACT_FILES_HOOK = patchUsrBinEnv;
     };
     libv8 = {
-      buildInputs = [ pkgs.python pkgs.v8 ];
+      buildInputs = [ pkgs.which ] ++ pkgs.v8.nativeBuildInputs ++ pkgs.v8.propagatedNativeBuildInputs;
+
+
+      NIX_POST_EXTRACT_FILES_HOOK = writeScript "path-bin" ''
+        #!/bin/sh
+        set -x
+        find "$1" -type f -perm -o+rx | xargs sed -i "s@/usr/bin/env@$(type -p env)@g"
+      '';
     };
 
     linecache19 = {
