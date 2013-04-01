@@ -72,6 +72,8 @@ in rec {
       buildInputs = [ pkgs.postgresql ];
     };
 
+    pry.gemFlags = [ "--no-ri" "--no-rdoc" ]; # docs fail 
+
     psych = { buildInputs = [ pkgs.libyaml ]; };
 
     rdoc = {
