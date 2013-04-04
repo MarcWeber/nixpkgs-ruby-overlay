@@ -122,6 +122,8 @@ let
               # add regex to builtins ..
               # drops last minor number. adds 1 to the number before the last. This implements the ~> feature of ruby's versions
               drop_last_dot_inc = s:
+                  if (dotCount s 0 == 0) then builtins.toString(builtins.add (str2int s) 1)
+                  else
                   let 
                     len = builtins.stringLength s;
                     h = dp1: dp2: pos:
@@ -470,6 +472,8 @@ let
         (specMatchesVersionConstraint (bumped "2.2" "2.3") ["~>" "2.2.0"])
 
         (!specMatchesVersionConstraint (bumped "2.3.0" "2.3") ["~>" "2.2.2"])
+        (specMatchesVersionConstraint (bumped "2" "1.5") ["~>" "1"])
+        (!specMatchesVersionConstraint (bumped "3" "2") ["~>" "1"])
         ];
     });
 
