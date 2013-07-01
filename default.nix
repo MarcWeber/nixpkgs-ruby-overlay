@@ -477,6 +477,13 @@ let
         ];
     });
 
+    # provides dependencies to run sup
+    supEnv = (pkgs.overlay "ruby").rubyEnv18 {
+      name = "sup";
+      names = [ "sup" ];
+    };
+
   };
+
 
 in a

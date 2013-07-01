@@ -80,6 +80,15 @@ in rec {
       gemFlags =[ "--no-ri" "--no-rdoc" ]; # can't bootstrap itself yet (TODO)
     };
 
+    rmagick = let im = pkgs.imagemagick; in {
+      # is imagemagick enough
+      buildInputs = [ im pkgs.pkgconfig ];
+      buildFlags = [
+        "--without-opt-include=${im}/include/ImageMagick/wand"
+        "--without-opt-lib=${im}/lib"
+      ];
+    };
+
     rubyuno = {
 
     };
@@ -103,7 +112,7 @@ in rec {
 
     sup = {
       additionalRubyDependencies = ["ncursesw"];
-      buildInputs = [ pkgs.xapianBindings ];
+      buildInputs = [ (pkgs.xapianBindings.override { inherit ruby; }) ];
     };
 
     tarruby = {
@@ -147,6 +156,14 @@ in rec {
       gemFlags = [ "--no-rdoc" ]; # compiling for ruby1.9 fails with: ERROR:  While executing gem ... (Encoding::UndefinedConversionError) U+2019 from UTF-8 to US-ASCII
       additionalRubyDependencies = [ "rake" "rdoc" ];
       buildInputs = [ pkgs.zlib pkgs.libuuid ];
+
+
+      NIX_POST_EXTRACT_FILES_HOOK = writeScript "path-bin" ''
+        #!/bin/sh
+        set -x
+        sed -i "/ENV..LDFLAGS/d" $out/*/*/Rakefile
+        find "$1" -type f -name "*.rb" | xargs sed -i "s@/bin/sed@$(type -p sed)@g"
+      '';
     };
     "xapian" = {
       gemFlags = [ "--no-rdoc" ]; # compiling for ruby1.9 fails with: ERROR:  While executing gem ... (Encoding::UndefinedConversionError) U+2019 from UTF-8 to US-ASCII
