@@ -293,7 +293,7 @@ let
 
     rubyPackages18 = args: rubyPackagesFor ({ruby = pkgs.ruby18; inherit (pkgs) rubygems;} // args);
     rubyPackages19 = args: rubyPackagesFor ({ruby = pkgs.ruby19; } // args);
-
+    rubyPackages2 = args: rubyPackagesFor ({ruby = pkgs.ruby2; } // args);
 
     # usage:
     # rubyEnv [ "sup" "hoe" "rails" ];
@@ -328,6 +328,7 @@ let
 
     rubyEnv18 = rubyEnv rubyPackages18;
     rubyEnv19 = rubyEnv rubyPackages19;
+    rubyEnv2 = rubyEnv rubyPackages2;
 
     ### RUBY 1.8
 
@@ -397,7 +398,7 @@ let
     # simple env enough to run the gem nix command updating the dump
     simpleEnv = rubyEnv19 {
       name = "simple";
-      names = ["nixpkgs-ruby-overlay-gem-plugin"];
+      names = ["nixpkgs-ruby-overlay-gem-plugin" "bundler"];
     };
 
     # example usage of a ruby environment you can load easily
@@ -483,7 +484,11 @@ let
       names = [ "sup" ];
     };
 
-  };
+    hls = (pkgs.overlay "ruby").rubyEnv19 {
+      name = "hls";
+      names = [ "HTTP-Live-Video-Stream-Segmenter-and-Distributor" ];
+    };
 
+  };
 
 in a

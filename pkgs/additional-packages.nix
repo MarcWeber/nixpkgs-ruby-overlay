@@ -67,5 +67,25 @@ let packages = {
           */
         };
       # END
+
+      # see pkgs/defaults.nix
+      "HTTP-Live-Video-Stream-Segmenter-and-Distributor"."0.0.0" = {
+        # spec.date: 2009-09-08 00:00:00 UTC
+        name = "HTTP-Live-Video-Stream-Segmenter-and-Distributor";
+        version = "0.0.0";
+        bump = "0.0";
+        platform = "ruby";
+        developmentDependencies = [  ];
+        runtimeDependencies = [];
+        dependencies =        [];
+        src = {
+          # REGION AUTO UPDATE: { name="HTTP-Live-Video-Stream-Segmenter-and-Distributor"; type="git"; url="git@github.com:carsonmcdonald/HTTP-Live-Video-Stream-Segmenter-and-Distributor.git"; groups=""; }
+          src = (fetchurl { url = "http://mawercer.de/~nix/repos/HTTP-Live-Video-Stream-Segmenter-and-Distributor-git-7540a.tar.bz2"; sha256 = "279a1857e09319a95f0f8cccd16fc83ffa66909bbd63179cabcd810c484fd0cb"; });
+          name = "HTTP-Live-Video-Stream-Segmenter-and-Distributor-git-7540a";
+          # END
+        }.src;
+        meta = {
+        };
+      };
     };
 in if builtins.hasAttr name packages then builtins.getAttr name packages else {}

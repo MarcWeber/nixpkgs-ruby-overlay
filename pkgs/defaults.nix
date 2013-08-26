@@ -27,6 +27,38 @@ in rec {
       buildFlags=["--with-ffi-dir=${pkgs.libffi}"];
       NIX_POST_EXTRACT_FILES_HOOK = patchUsrBinEnv;
     };
+
+    "HTTP-Live-Video-Stream-Segmenter-and-Distributor" = {
+      buildInputs = with pkgs; [ ffmpeg zlib bzip2 x264 lame faad2 ];
+      # should be a gem
+      installPhase = ''
+        unset unpackPhase
+        unpackPhase
+        cd $sourceRoot
+        ensureDir $out/bin
+        ensureDir $out/lib
+
+        export RUBYLIB=$RUBYLIB:$out/lib
+
+        find
+        mv hs_transfer.rb hs_encoder.rb hs_config.rb $out/lib
+        mv example-configs $out
+
+        mv http_streamer.rb $out/bin
+
+        make
+        cp live_segmenter $out/bin
+
+        t=$out/bin/http_streamer
+        cat >> $t << EOF
+        #!/bin/sh
+        export RUBYLIB=$out/lib:\$RUBYLIB
+        exec $(type -p ruby) $out/bin/http_streamer.rb "\$@"
+        EOF
+        chmod +x "$t"
+      '';
+    };
+
     libv8 = {
       buildInputs = [ pkgs.which ] ++ pkgs.v8.nativeBuildInputs ++ pkgs.v8.propagatedNativeBuildInputs;
 
@@ -152,6 +184,20 @@ in rec {
         '';
       };
 
+
+    "xapian-ruby" = {
+      gemFlags = [ "--no-rdoc" ]; # compiling for ruby1.9 fails with: ERROR:  While executing gem ... (Encoding::UndefinedConversionError) U+2019 from UTF-8 to US-ASCII
+      additionalRubyDependencies = [ "rake" "rdoc" ];
+      buildInputs = [ pkgs.zlib pkgs.libuuid ];
+
+
+      NIX_POST_EXTRACT_FILES_HOOK = writeScript "path-bin" ''
+        #!/bin/sh
+        set -x
+        sed -i "/ENV..LDFLAGS/d" $out/*/*/Rakefile
+        find "$1" -type f -name "*.rb" | xargs sed -i "s@/bin/sed@$(type -p sed)@g"
+      '';
+    };
     "xapian-full" = {
       gemFlags = [ "--no-rdoc" ]; # compiling for ruby1.9 fails with: ERROR:  While executing gem ... (Encoding::UndefinedConversionError) U+2019 from UTF-8 to US-ASCII
       additionalRubyDependencies = [ "rake" "rdoc" ];
