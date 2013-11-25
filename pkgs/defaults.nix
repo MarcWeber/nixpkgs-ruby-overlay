@@ -266,11 +266,18 @@ in rec {
               . $out/nix-support/setup-hook
 
               for prog in $out/bin/*; do
-                [ -d "$prog" ] || \
-                wrapProgram "$prog" \
-                  --prefix RUBYLIB : "$RUBYLIB"${ if rubygems == null then "" else ":${rubygems}/lib" } \
-                  --prefix GEM_PATH : "$GEM_PATH" \
-                  --set RUBYOPT 'rubygems'
+                if ! [ -d "$prog" ]; then
+                   p="$(dirname "$(dirname "$prog")")"/bin-wrapped/
+                   mkdir -p "$p" || true
+                   hidden="$p"/"$(basename "$prog")"
+                   mv "$prog" "$hidden"
+                   # Using makeWrapper for puppet use case
+                   # It expects the wrapped command to have the same name
+                   makeWrapper "$hidden" "$prog" \
+                     --prefix RUBYLIB : "$RUBYLIB"${ if rubygems == null then "" else ":${rubygems}/lib" } \
+                     --prefix GEM_PATH : "$GEM_PATH" \
+                     --set RUBYOPT 'rubygems'
+                fi
               done
 
               for prog in $out/gems/*/bin/* $out/gems/*/bin/*/*; do
