@@ -79,9 +79,8 @@ in rec {
     "ruby-debug-base19" = { buildFlags = [ "--with-ruby-include=${ruby}/src"]; };
 
 
-    mysql = {
-      buildInputs = [ pkgs.mysql pkgs.zlib ];
-    };
+    mysql.buildInputs = [ pkgs.mysql pkgs.zlib ];
+    mysql2.buildInputs = [ pkgs.mysql pkgs.zlib ];
     mysqlplus = {
       buildInputs = [ pkgs.mysql pkgs.zlib ];
     };
