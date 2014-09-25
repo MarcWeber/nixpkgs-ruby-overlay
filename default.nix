@@ -291,9 +291,9 @@ let
                                (map tag allP);
       };
 
-    rubyPackages18 = args: rubyPackagesFor ({ruby = pkgs.ruby18; inherit (pkgs) rubygems;} // args);
-    rubyPackages19 = args: rubyPackagesFor ({ruby = pkgs.ruby19; } // args);
-    rubyPackages2 = args: rubyPackagesFor ({ruby = pkgs.ruby2; } // args);
+    rubyPackages18 = args: rubyPackagesFor ({ruby = pkgs.ruby_1_8; inherit (pkgs) rubygems;} // args);
+    rubyPackages19 = args: rubyPackagesFor ({ruby = pkgs.ruby_1_9; } // args);
+    rubyPackages2 = args: rubyPackagesFor ({ruby = pkgs.ruby_2_0; } // args);
 
     # usage:
     # rubyEnv [ "sup" "hoe" "rails" ];
