@@ -2,7 +2,6 @@
 # should this be moved into pkg/top-level/all-packages.nix ?
 {
   system ? builtins.currentSystem
-, stdenvType ? system
 , bootStdenv ? null
 , noSysDirs ? true
 , gccWithCC ? true
@@ -33,7 +32,7 @@
 let
 
   # stupidly repeating all arguments:
-  mainConfig = { inherit system stdenvType bootStdenv noSysDirs gccWithCC gccWithProfiling config; };
+  mainConfig = { inherit system bootStdenv noSysDirs gccWithCC gccWithProfiling config; };
 
   merge = list: (removeAttrs (mergeAttrsByFuncDefaults list) ["mergeAttrBy"]);
 
