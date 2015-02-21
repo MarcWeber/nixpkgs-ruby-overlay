@@ -306,7 +306,7 @@ let
         tagged = px.tagged;
         unpackPhase = ":";
         installPhase = ''
-          ensureDir $out/bin
+          mkdir -p $out/bin
           b=$out/bin/ruby-env-${name}
           cat >> $b << EOF
           #!/bin/sh
@@ -428,7 +428,7 @@ let
 
     previewDerivation = spec:
       pkgs.runCommand "${spec.name}-source-preview" {} ''
-        ensureDir $out
+        mkdir -p $out
         cd $out
         tar xf ${spec.src}
         tar xfz data.tar.gz

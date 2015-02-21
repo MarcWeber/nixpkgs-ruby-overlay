@@ -35,8 +35,8 @@ in rec {
         unset unpackPhase
         unpackPhase
         cd $sourceRoot
-        ensureDir $out/bin
-        ensureDir $out/lib
+        mkdir -p $out/bin
+        mkdir -p $out/lib
 
         export RUBYLIB=$RUBYLIB:$out/lib
 
@@ -92,6 +92,7 @@ in rec {
     ncursesw = { buildInputs = [ pkgs.ncurses ]; };
     nokogiri = {
       buildFlags=["--with-xml2-dir=${pkgs.libxml2} --with-xml2-include=${pkgs.libxml2}/include/libxml2"
+                  "--with-zlib-dir=${pkgs.zlib}"
                   "--with-xslt-dir=${pkgs.libxslt}" ];
     };
 
