@@ -4,6 +4,8 @@ let inherit (pkgs) fetchurl stdenv lib;
     inherit (pkgs.lib) mergeAttrsByFuncDefaults optional;
     inherit (builtins) hasAttr getAttr;
 
+    mysql = pkgs.mysql56; # default in nixos could be aria
+
 in rec {
 
   patchUsrBinEnv = writeScript "path-usr-bin-env" ''
@@ -79,13 +81,13 @@ in rec {
     "ruby-debug-base19" = { buildFlags = [ "--with-ruby-include=${ruby}/src"]; };
 
 
-    mysql.buildInputs = [ pkgs.mysql pkgs.zlib ];
-    mysql2.buildInputs = [ pkgs.mysql pkgs.zlib ];
+    mysql.buildInputs = [ mysql pkgs.zlib ];
+    mysql2.buildInputs = [ mysql pkgs.zlib ];
     mysqlplus = {
-      buildInputs = [ pkgs.mysql pkgs.zlib ];
+      buildInputs = [ mysql pkgs.zlib ];
     };
     do_mysql = {
-      buildInputs = [ pkgs.mysql pkgs.zlib ];
+      buildInputs = [ mysql pkgs.zlib ];
     };
 
     ncurses = { buildInputs = [ pkgs.ncurses ]; };
