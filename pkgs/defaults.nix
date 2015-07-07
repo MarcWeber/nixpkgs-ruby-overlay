@@ -6,6 +6,28 @@ let inherit (pkgs) fetchurl stdenv lib;
 
     mysql = pkgs.mysql56; # default in nixos could be aria
 
+    setupHook = ''
+      THIS_RUBY_LIB=$(echo $out/gems/*/lib)
+      THIS_GEM_PATH=$out
+
+      cat >> $out/nix-support/setup-hook << EOF 
+        declare -A RUBYLIB_HASH # using bash4 hashs
+        declare -A GEM_PATH_HASH # using bash4 hashs
+
+        if [ -n "$THIS_RUBY_LIB" ]; then
+          RUBYLIB_HASH["$THIS_RUBY_LIB"]=
+        fi
+        for path in \''${!RUBYLIB_HASH[@]}; do
+          export RUBYLIB=\''${RUBYLIB}\''${RUBYLIB:+:}\$path
+        done
+        GEM_PATH_HASH["$THIS_GEM_PATH"]=
+        for path in \''${!GEM_PATH_HASH[@]}; do
+          export GEM_PATH=\''${GEM_PATH}\''${GEM_PATH:+:}\$path
+        done
+      EOF
+      . $out/nix-support/setup-hook
+    '';
+
 in rec {
 
   patchUsrBinEnv = writeScript "path-usr-bin-env" ''
@@ -92,6 +114,46 @@ in rec {
 
     ncurses = { buildInputs = [ pkgs.ncurses ]; };
     ncursesw = { buildInputs = [ pkgs.ncurses ]; };
+    "ncursesw-1.4.9" =
+    let version ="1.4.9";
+        gemspec = fetchurl {
+          url = "https://raw.githubusercontent.com/sup-heliotrope/ncursesw-ruby/master/ncursesw.gemspec";
+          sha256 = "146s9vgrxc9g6s8bi7408szkw98apl8m87lkbqk5km58vp6ypnhb";
+        };
+    in {
+      # buildPhase = "gem build ncursesw.gemspec";
+
+      gemCommand = ''
+        set -x
+        type -p install
+
+        mkdir $TMP/t
+        cat >> $TMP/t/install << EOF
+        #!/bin/sh
+        echo "==> running" $(type -p install) "$@"
+        $(type -p install) "$@" || exit 1
+        EOF
+        chmod +x $TMP/t/install
+        PATH=$TMP/t:$PATH
+
+        gem install --no-verbose --install-dir "$out" \
+            --bindir "$out/bin" --no-rdoc --no-ri "$src" || true
+
+        mkdir -p $out/specifications
+        cp ${gemspec} $out/specifications/
+
+        cd "$out/gems/ncursesw-${version}"
+        mkdir src
+        cp -a lib src
+        mv *.h src
+        sed -i "s/srcdir = ./srcdir = src/" Makefile
+        make install
+
+        ${setupHook}
+        exit 0
+      '';
+
+    };
     nokogiri = {
       buildFlags=["--with-xml2-dir=${pkgs.libxml2} --with-xml2-include=${pkgs.libxml2}/include/libxml2"
                   "--with-zlib-dir=${pkgs.zlib}"
@@ -143,9 +205,8 @@ in rec {
     };
     sqlite3_ruby = { propagatedBuildInputs = [ pkgs.sqlite ]; };
 
-
     sup = {
-      additionalRubyDependencies = ["ncursesw"];
+      additionalRubyDependencies = ["ncursesw" "xapian-ruby"/*required for building native extension?*/ ];
       buildInputs = [ (pkgs.xapianBindings.override { inherit ruby; }) ];
     };
 
@@ -172,7 +233,7 @@ in rec {
     "ruby-debug19" = { buildFlags = [ "--with-ruby-include=${ruby}/src" ]; };
 
     "xrefresh-server" =
-      let patch = fetchurl {
+      let patch = pkgs.fetchurl {
           url = "http://mawercer.de/~nix/xrefresh.diff.gz";
           sha256 = "1f7bnmn1pgkmkml0ms15m5lx880hq2sxy7vsddb3sbzm7n1yyicq";
         };
@@ -231,6 +292,9 @@ in rec {
 
   rubyDerivation = args :
     let full_name = "${args.name}-${args.version}";
+        gemCommand = args.gemCommand or ''
+          gem install --backtrace -V --ignore-dependencies -i "$out" "$src" $gemFlags -- $buildFlags
+        '';
         completeArgs = (mergeAttrsByFuncDefaults
         ([
           {
@@ -241,31 +305,13 @@ in rec {
 
             # TODO add some abstraction for this kind of env path concatenation. It's used multiple times
             installPhase = ''
-              ensureDir "$out/nix-support"
+              mkdir -p "$out/nix-support"
               export HOME=$TMP/home; mkdir "$HOME"
 
-              gem install --backtrace -V --ignore-dependencies -i "$out" "$src" $gemFlags -- $buildFlags
+              ${gemCommand}
               rm -fr $out/cache # don't keep the .gem file here
 
-              THIS_RUBY_LIB=$(echo $out/gems/*/lib)
-              THIS_GEM_PATH=$out
-
-              cat >> $out/nix-support/setup-hook << EOF 
-                declare -A RUBYLIB_HASH # using bash4 hashs
-                declare -A GEM_PATH_HASH # using bash4 hashs
-
-                if [ -n "$THIS_RUBY_LIB" ]; then
-                  RUBYLIB_HASH["$THIS_RUBY_LIB"]=
-                fi
-                for path in \''${!RUBYLIB_HASH[@]}; do
-                  export RUBYLIB=\''${RUBYLIB}\''${RUBYLIB:+:}\$path
-                done
-                GEM_PATH_HASH["$THIS_GEM_PATH"]=
-                for path in \''${!GEM_PATH_HASH[@]}; do
-                  export GEM_PATH=\''${GEM_PATH}\''${GEM_PATH:+:}\$path
-                done
-              EOF
-              . $out/nix-support/setup-hook
+              ${setupHook}
 
               for prog in $out/bin/*; do
                 if ! [ -d "$prog" ]; then
