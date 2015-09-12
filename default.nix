@@ -292,7 +292,7 @@ let
 
     rubyPackages18 = args: rubyPackagesFor ({ruby = pkgs.ruby_1_8; inherit (pkgs) rubygems;} // args);
     rubyPackages19 = args: rubyPackagesFor ({ruby = pkgs.ruby_1_9; } // args);
-    rubyPackages2 = args: rubyPackagesFor ({ruby = pkgs.ruby_2_0; } // args);
+    rubyPackages2 = args: rubyPackagesFor ({ruby = pkgs.ruby_2_2; } // args);
 
     # usage:
     # rubyEnv [ "sup" "hoe" "rails" ];
