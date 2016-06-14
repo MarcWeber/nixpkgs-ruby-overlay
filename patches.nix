@@ -1,36 +1,9 @@
-{writeScript, pkgs, ruby, rubygems, mainConfig}:
+{ pkgs, ruby }:
 
-let inherit (pkgs) fetchurl stdenv lib;
-    inherit (pkgs.lib) mergeAttrsByFuncDefaults optional;
-    inherit (builtins) hasAttr getAttr;
+# check .out
 
-    mysql = pkgs.mysql56; # default in nixos could be aria
-
-    setupHook = ''
-      THIS_RUBY_LIB=$(echo $out/gems/*/lib)
-      THIS_GEM_PATH=$out
-
-      cat >> $out/nix-support/setup-hook << EOF 
-        declare -A RUBYLIB_HASH # using bash4 hashs
-        declare -A GEM_PATH_HASH # using bash4 hashs
-
-        if [ -n "$THIS_RUBY_LIB" ]; then
-          RUBYLIB_HASH["$THIS_RUBY_LIB"]=
-        fi
-        for path in \''${!RUBYLIB_HASH[@]}; do
-          export RUBYLIB=\''${RUBYLIB}\''${RUBYLIB:+:}\$path
-        done
-        GEM_PATH_HASH["$THIS_GEM_PATH"]=
-        for path in \''${!GEM_PATH_HASH[@]}; do
-          export GEM_PATH=\''${GEM_PATH}\''${GEM_PATH:+:}\$path
-        done
-      EOF
-      . $out/nix-support/setup-hook
-    '';
-
-in rec {
-
-  patchUsrBinEnv = writeScript "path-usr-bin-env" ''
+let
+  patchUsrBinEnv = pkgs.writeScript "path-usr-bin-env" ''
     #!/bin/sh
     set -x
     echo "==================="
@@ -38,22 +11,45 @@ in rec {
     find "$1" -type f -name "*.mk" | xargs sed -i "s@/usr/bin/env@$(type -p env)@g"
   '';
 
-  # these settings are merged into the automatically generated settings
-  # either the nameNoVersion or name must match
-  # does it make a difference whether you use ruby 1.8 or ruby 1.9 ? Probably yes
-  patches = {
+  setupHook = ''
+    THIS_RUBY_LIB=$(echo $out/gems/*/lib)
+    THIS_GEM_PATH=$out
+
+    cat >> $out/nix-support/setup-hook << EOF 
+      declare -A RUBYLIB_HASH # using bash4 hashs
+      declare -A GEM_PATH_HASH # using bash4 hashs
+
+      if [ -n "$THIS_RUBY_LIB" ]; then
+        RUBYLIB_HASH["$THIS_RUBY_LIB"]=
+      fi
+      for path in \''${!RUBYLIB_HASH[@]}; do
+        export RUBYLIB=\''${RUBYLIB}\''${RUBYLIB:+:}\$path
+      done
+      GEM_PATH_HASH["$THIS_GEM_PATH"]=
+      for path in \''${!GEM_PATH_HASH[@]}; do
+        export GEM_PATH=\''${GEM_PATH}\''${GEM_PATH:+:}\$path
+      done
+    EOF
+    . $out/nix-support/setup-hook
+  '';
+
+  mysql = pkgs.mysql56; # default in nixos could be aria
+
+  in
+
+{
 
     builder = { gemFlags = "--no-ri --no-rdoc"; };
     ffi = {
       postUnpack = "onetuh";
       additionalRubyDependencies = [ "rake" ];
-      buildInputs = [ pkgs.libffi ];
+      buildInputs = [ pkgs.libffi.out ];
       buildFlags=["--with-ffi-dir=${pkgs.libffi}"];
       NIX_POST_EXTRACT_FILES_HOOK = patchUsrBinEnv;
     };
 
     "HTTP-Live-Video-Stream-Segmenter-and-Distributor" = {
-      buildInputs = with pkgs; [ ffmpeg zlib bzip2 x264 lame faad2 ];
+      buildInputs = with pkgs; [ ffmpeg.out zlib.out bzip2.out x264.out lame.out faad2.out ];
       # should be a gem
       installPhase = ''
         unset unpackPhase
@@ -84,10 +80,10 @@ in rec {
     };
 
     libv8 = {
-      buildInputs = [ pkgs.which ] ++ pkgs.v8.nativeBuildInputs ++ pkgs.v8.propagatedNativeBuildInputs;
+      buildInputs = [ pkgs.which ] ++ pkgs.v8.nativeBuildInputs.out ++ pkgs.v8.propagatedNativeBuildInputs.out;
 
 
-      NIX_POST_EXTRACT_FILES_HOOK = writeScript "path-bin" ''
+      NIX_POST_EXTRACT_FILES_HOOK = pkgs.writeScript "path-bin" ''
         #!/bin/sh
         set -x
         find "$1" -type f -perm -o+rx | xargs sed -i "s@/usr/bin/env@$(type -p env)@g"
@@ -103,20 +99,20 @@ in rec {
     "ruby-debug-base19" = { buildFlags = [ "--with-ruby-include=${ruby}/src"]; };
 
 
-    mysql.buildInputs = [ mysql pkgs.zlib ];
-    mysql2.buildInputs = [ mysql pkgs.zlib ];
+    mysql.buildInputs = [ mysql pkgs.zlib.out ];
+    mysql2.buildInputs = [ mysql pkgs.zlib.out ];
     mysqlplus = {
-      buildInputs = [ mysql pkgs.zlib ];
+      buildInputs = [ mysql pkgs.zlib.out ];
     };
     do_mysql = {
-      buildInputs = [ mysql pkgs.zlib ];
+      buildInputs = [ mysql pkgs.zlib.out ];
     };
 
-    ncurses = { buildInputs = [ pkgs.ncurses ]; };
-    ncursesw = { buildInputs = [ pkgs.ncurses ]; };
+    ncurses = { buildInputs = [ pkgs.ncurses.out ]; };
+    ncursesw = { buildInputs = [ pkgs.ncurses.out ]; };
     "ncursesw-1.4.9" =
     let version ="1.4.9";
-        gemspec = fetchurl {
+        gemspec = pkgs.fetchurl {
           url = "https://raw.githubusercontent.com/sup-heliotrope/ncursesw-ruby/master/ncursesw.gemspec";
           sha256 = "146s9vgrxc9g6s8bi7408szkw98apl8m87lkbqk5km58vp6ypnhb";
         };
@@ -155,22 +151,27 @@ in rec {
 
     };
     nokogiri = {
-      buildFlags=["--with-xml2-dir=${pkgs.libxml2} --with-xml2-include=${pkgs.libxml2}/include/libxml2"
-                  "--with-zlib-dir=${pkgs.zlib}"
-                  "--with-xslt-dir=${pkgs.libxslt}" ];
+      buildFlags=[
+                  "--with-xml2-include=${pkgs.libxml2.dev}/include/libxml2"
+                  "--with-xml2-lib=${pkgs.libxml2.out}/lib"
+                  "--with-zlib-include=${pkgs.zlib.dev}/include"
+                  "--with-zlib-lib=${pkgs.zlib.out}/lib"
+                  "--with-xslt-include=${pkgs.libxslt.dev}/include"
+                  "--with-xslt-lib=${pkgs.libxslt.out}/lib"
+      ];
     };
 
     do_postgres = {
-      buildInputs = [ pkgs.postgresql ];
+      buildInputs = [ pkgs.postgresql.out ];
     };
 
     postgres = {
-      buildInputs = [ pkgs.postgresql ];
+      buildInputs = [ pkgs.postgresql.out ];
     };
 
     pry.gemFlags = [ "--no-ri" "--no-rdoc" ]; # docs fail 
 
-    psych = { buildInputs = [ pkgs.libyaml ]; };
+    psych = { buildInputs = [ pkgs.libyaml.out ]; };
 
     rdoc = {
       gemFlags =[ "--no-ri" "--no-rdoc" ]; # can't bootstrap itself yet (TODO)
@@ -185,22 +186,20 @@ in rec {
       ];
     };
 
-    rubyuno = {
-
-    };
+    rubyuno = { };
 
     rugged = {
-      buildInputs = [ pkgs.libgit2 pkgs.zlib pkgs.which ];
+      buildInputs = [ pkgs.libgit2 pkgs.zlib.out pkgs.which ];
       buildFlags = [
         "--without-opt-include=${pkgs.libgit2}/include"
         "--without-opt-lib=${pkgs.libgit2}/lib"
       ];
     };
 
-    "do_sqlite3" = { buildInputs = [ pkgs.sqlite ]; };
+    "do_sqlite3" = { buildInputs = [ pkgs.sqlite.out ]; };
 
     "sqlite3" = { 
-      buildInputs = [ pkgs.sqlite ];
+      buildInputs = [ pkgs.sqlite.out ];
       # buildFlags = [ "--with-sqlite3-dir=${pkgs.sqlite}" "--with-sqlite3-include=${pkgs.sqlite}/include" "--with-sqlite3-lib=${pkgs.sqlite}/lib" ];
     };
     sqlite3_ruby = { propagatedBuildInputs = [ pkgs.sqlite ]; };
@@ -211,7 +210,7 @@ in rec {
     };
 
     tarruby = {
-      buildInputs = [ pkgs.libtar pkgs.zlib ];
+      buildInputs = [ pkgs.libtar.out pkgs.zlib.out ];
 
       NIX_CFLAGS_COMPILE="-fPIC";
 
@@ -251,10 +250,10 @@ in rec {
     "xapian-ruby" = {
       gemFlags = [ "--no-rdoc" ]; # compiling for ruby1.9 fails with: ERROR:  While executing gem ... (Encoding::UndefinedConversionError) U+2019 from UTF-8 to US-ASCII
       additionalRubyDependencies = [ "rake" "rdoc" ];
-      buildInputs = [ pkgs.zlib pkgs.libuuid ];
+      buildInputs = [ pkgs.zlib.out pkgs.libuuid.out ];
 
 
-      NIX_POST_EXTRACT_FILES_HOOK = writeScript "path-bin" ''
+      NIX_POST_EXTRACT_FILES_HOOK = pkgs.writeScript "path-bin" ''
         #!/bin/sh
         set -x
         sed -i "/ENV..LDFLAGS/d" $out/*/*/Rakefile
@@ -264,10 +263,10 @@ in rec {
     "xapian-full" = {
       gemFlags = [ "--no-rdoc" ]; # compiling for ruby1.9 fails with: ERROR:  While executing gem ... (Encoding::UndefinedConversionError) U+2019 from UTF-8 to US-ASCII
       additionalRubyDependencies = [ "rake" "rdoc" ];
-      buildInputs = [ pkgs.zlib pkgs.libuuid ];
+      buildInputs = [ pkgs.zlib.out pkgs.libuuid.out ];
 
 
-      NIX_POST_EXTRACT_FILES_HOOK = writeScript "path-bin" ''
+      NIX_POST_EXTRACT_FILES_HOOK = pkgs.writeScript "path-bin" ''
         #!/bin/sh
         set -x
         sed -i "/ENV..LDFLAGS/d" $out/*/*/Rakefile
@@ -277,83 +276,14 @@ in rec {
     "xapian" = {
       gemFlags = [ "--no-rdoc" ]; # compiling for ruby1.9 fails with: ERROR:  While executing gem ... (Encoding::UndefinedConversionError) U+2019 from UTF-8 to US-ASCII
       additionalRubyDependencies = [ "rake" "rdoc" ];
-      buildInputs = [ pkgs.xapian  pkgs.gnused pkgs.libtool ];
+      buildInputs = [ pkgs.xapian.out  pkgs.gnused pkgs.libtool.out ];
 
-      NIX_POST_EXTRACT_FILES_HOOK = writeScript "path-bin" ''
+      NIX_POST_EXTRACT_FILES_HOOK = pkgs.writeScript "path-bin" ''
         #!/bin/sh
         set -x
         find "$1" -type f -name "*.rb" | xargs sed -i "s@/bin/sed@$(type -p sed)@g"
       '';
 
     };
-
-  };
-
-
-  rubyDerivation = args :
-    let full_name = "${args.name}-${args.version}";
-        gemCommand = args.gemCommand or ''
-          gem install --backtrace -V --ignore-dependencies -i "$out" "$src" $gemFlags -- $buildFlags
-        '';
-        completeArgs = (mergeAttrsByFuncDefaults
-        ([
-          {
-            buildInputs = [ruby pkgs.makeWrapper] ++ lib.optional (rubygems != null) rubygems;
-            unpackPhase = ":";
-            configurePhase=":";
-            bulidPhase=":";
-
-            # TODO add some abstraction for this kind of env path concatenation. It's used multiple times
-            installPhase = ''
-              mkdir -p "$out/nix-support"
-              export HOME=$TMP/home; mkdir "$HOME"
-
-              ${gemCommand}
-              rm -fr $out/cache # don't keep the .gem file here
-
-              ${setupHook}
-
-              for prog in $out/bin/*; do
-                if ! [ -d "$prog" ]; then
-                   p="$(dirname "$(dirname "$prog")")"/bin-wrapped/
-                   mkdir -p "$p" || true
-                   hidden="$p"/"$(basename "$prog")"
-                   mv "$prog" "$hidden"
-                   # Using makeWrapper for puppet use case
-                   # It expects the wrapped command to have the same name
-                   makeWrapper "$hidden" "$prog" \
-                     --prefix RUBYLIB : "$RUBYLIB"${ if rubygems == null then "" else ":${rubygems}/lib" } \
-                     --prefix GEM_PATH : "$GEM_PATH" \
-                     --set RUBYOPT 'rubygems'
-                fi
-              done
-
-              for prog in $out/gems/*/bin/* $out/gems/*/bin/*/*; do
-                # there is rails-2.3.5/gems/rails-2.3.5/bin/performance/* thus use */* :-(
-                # should be using find here?
-                [ -d "$prog" ] && continue || true
-
-                [ -e "$out/bin/$(basename $prog)" ] && continue || true
-                sed -i '1s@.*@#!  ${ruby}/bin/ruby@' "$prog"
-                t="$out/bin/$(basename "$prog")"
-                cat >> "$t" << EOF
-              #!/bin/sh
-              export GEM_PATH=$GEM_PATH:\$GEM_PATH
-              #export RUBYLIB=$RUBYLIB:\$RUBYLIB
-              exec $(type -p ruby) $prog "\$@"
-              EOF
-                chmod +x "$t"
-              done
-
-              runHook postInstall
-            '';
-        }
-        args 
-        { name = "${args.name}-${args.version}"; }
-      ]
-      ));
-    in
-      let args = (removeAttrs completeArgs ["mergeAttrBy"]);
-      in stdenv.mkDerivation args;
 
 }

@@ -1,17 +1,95 @@
-You also have to checkout nixpkgs-ruby-overlay-specs beneath this directory
+import ruby into nix
 
-gem plugin creating the dump [1]:
+1) See ruby sample code about how to generate ./test.nix like nix code
 
-Run it this way:
+2) see default.nix about how to use it.
 
-install simpleEnv
-ruby-env-simple gem nixpkgsoverlay $TARGET
+3) build packages by either
+   A) nix-build -A test.mechanize ./default.nix
+      usage: add to RUBLIB env var
+   B) nix-build -A testEnv23 ./default.nix
+      usage bin/ruby-env-name sh
+      or    bin/ruby-env-name ruby.rb
 
-where $TARGET is a checkout of nixpkgs-ruby-overlay-specs [2] because it contais a
-huge files with fetched hashes.
+4) if packages require C libraries (mysql,zlib,postgresql) see ./patches.nix to
+  add them by name or name-version
+5) maybe gemspec today knows how to use git, I didn't think about it. There are
+  some git*.rb files in the most current repository
 
-Of course you can refetch everything from scratch but it'll take several hours
+# historical note: previously this repository contained kind of "brute force
+# solver" for Ruby packages - however gems dropped a method to list all gems
+# keeping it up to date was too tiresome.
 
+===> ruby sampe code
+# encoding: UTF-8
 
-[1] http://gitorious.org/nixpkgs-ruby-overlay/nixpkgs-ruby-overlay-gem-plugin
-[2] http://gitorious.org/nixpkgs-ruby-overlay/nixpkgs-ruby-overlay-specs
+require 'rubygems/request_set'
+
+deps = [
+  ['nokogiri', '= 1.6.8'],
+  ['mechanize'],
+  ['mysql2']
+]
+set = Gem::RequestSet.new *(deps.map {|v| Gem::Dependency.new(*v)})
+requests = set.resolve
+
+class Array
+  def to_nix; "[" + self.map(&:to_nix).join(" ") + "]"; end
+end
+
+class String
+  def to_nix; "\"#{self}\""; end
+end
+
+class Hash
+  def self.key_value(k, v)
+    "#{k.to_nix} = #{v.to_nix};"
+  end
+  def to_nix
+    "{#{self.keys.map {|k| Hash.key_value(k, self[k])  }.join(" ")}}";
+  end
+end
+
+class NixV
+  def initialize(v)
+    @v = v
+  end
+  def to_nix
+    @v
+  end
+end
+
+def src_from_request(r)
+  src = {}
+  src[:url] = "http://production.cf.rubygems.org/gems/#{r.full_name}.gem"
+
+  # TODO rewrite using ruby code?
+  md5 = `curl -L --silent -I #{src[:url]} | sed -n 's/ETag: "\\(.*\\)"/\\1/p'`.split("\n")[0]
+  md5.strip! unless md5.nil?
+
+  if md5.nil? then
+    p "curl -I failed. runnig md5 on #{r.full_name}"
+    gem_file = Gem::RemoteFetcher.fetcher.download r, src[:url], '/tmp/'
+    hash = `nix-hash --flat --type md5 #{gem_file}`.split("\n")[0].strip
+    src[:sha256] = hash
+  else 
+    src[:md5] = md5
+  end
+
+  src
+end
+
+class Object; def to_nix; self.to_s.to_nix; end; end
+
+puts "{build_ruby_package, fix, fetchurl}: fix (rpkgs: {"
+requests.each do |request|
+  # dep = Gem::Dependency.new request.name, request.version
+  # r = Gem::SpecFetcher.fetcher.search_for_dependency dep
+  h = {}
+  h[:src] = NixV.new "fetchurl #{src_from_request(request).to_nix}"
+  h[:name] = request.name
+  h[:version] = request.version
+  h[:dependencies] = request.spec.dependencies.map(&:name)
+  puts "#{request.full_name.to_nix} = build_ruby_package rpkgs #{h.to_nix};"
+end
+puts "})"
