@@ -91,5 +91,6 @@ requests.each do |request|
   h[:version] = request.version
   h[:dependencies] = request.spec.dependencies.map(&:name)
   puts "#{request.full_name.to_nix} = build_ruby_package rpkgs #{h.to_nix};"
+  puts "#{request.name.to_nix} = rpkgs.#{request.full_name.to_nix};"
 end
 puts "})"
