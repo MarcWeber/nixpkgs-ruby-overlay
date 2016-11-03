@@ -16,23 +16,34 @@ import ruby into nix
 5) maybe gemspec today knows how to use git, I didn't think about it. There are
   some git*.rb files in the most current repository
 
+TODO:
+- think about tidying up the output so that it only contains required data 
+  (git data ? src could be simplified)
+- tihnk about moving code into gem plugin
+- rewrite curl and cache md5 result
+
 # historical note: previously this repository contained kind of "brute force
 # solver" for Ruby packages - however gems dropped a method to list all gems
 # keeping it up to date was too tiresome.
 
-===> ruby sampe code
+===> ruby sample code
 # encoding: UTF-8
 
 require 'rubygems/request_set'
 
 deps = [
-  ['nokogiri', '= 1.6.8'],
+  ['nokogiri'],
   ['mechanize'],
-  ['mysql2']
+  ['mysql2'],
+  ['selenium-webdriver']
 ]
+
+$CACHE_FILE_OR_NIL = E_CACHE = ENV['HOME']+"/.nix2ruby-resolve-deps"
+
 set = Gem::RequestSet.new *(deps.map {|v| Gem::Dependency.new(*v)})
 requests = set.resolve
 
+## LIB
 class Array
   def to_nix; "[" + self.map(&:to_nix).join(" ") + "]"; end
 end
@@ -59,38 +70,105 @@ class NixV
   end
 end
 
-def src_from_request(r)
-  src = {}
-  src[:url] = "http://production.cf.rubygems.org/gems/#{r.full_name}.gem"
+class Object; def to_nix; self.to_s.to_nix; end; end
 
-  # TODO rewrite using ruby code?
-  md5 = `curl -L --silent -I #{src[:url]} | sed -n 's/ETag: "\\(.*\\)"/\\1/p'`.split("\n")[0]
-  md5.strip! unless md5.nil?
-
-  if md5.nil? then
-    p "curl -I failed. runnig md5 on #{r.full_name}"
-    gem_file = Gem::RemoteFetcher.fetcher.download r, src[:url], '/tmp/'
-    hash = `nix-hash --flat --type md5 #{gem_file}`.split("\n")[0].strip
-    src[:sha256] = hash
-  else 
-    src[:md5] = md5
+class FileCached
+  def initialize(config)
+    @config = {
+      :default => {},
+      :from_file => lambda{|filename| File.open(filename, "rb") { |file| Marshal.load(file) } },
+      :to_binary => lambda{|t| Marshal.dump(t) },
+      :use_cache => true,
+      :load_cache => config[:use_cache] || config[:load_cache],
+      :write_cache => config[:use_cache] || config[:write_cache],
+    }.merge(config)
   end
 
+  def load_cache
+    return if @cache
+    if @config[:load_cache] and (File.exist? @config[:filename])
+      @cache = @config[:from_file].call(@config[:filename])
+      @read  = @config[:to_binary].call(@cache)
+    else
+      @cache = @config[:default]
+      @read = nil
+    end
+  end
+
+  def dump_cache
+    return unless @config[:write_cache]
+    # check whether it was changed
+    binary = @config[:to_binary].call(@cache)
+    File.open(@config[:filename],"w") {|f| f.write binary } if binary != @read
+  end
+
+  def with(opts = {})
+    load_cache
+    begin
+      r = yield @cache
+    ensure
+      dump_cache unless opts[:only_reading] or opts[:write_cache]
+    end
+    r
+  end
+
+  def get(*keys, &blk)
+    h = @cache
+    while keys.count > 1
+      k = keys.shift
+      @cache[k] ||= {}
+      h = @cache[k]
+    end
+    k = keys.shift
+    if not h.include? k
+      h[k] = yield
+    end
+    h[k]
+  end
+
+end
+
+## LIB END
+
+def src_from_request(r, cache_obj)
+  src = {}
+  src[:url] = "http://production.cf.rubygems.org/gems/#{r.full_name}.gem"
+  src.merge! (cache_obj.get("src_hash", src[:url]) do
+    # returns {md5 => or sha256 => }
+    h = {}
+    # TODO rewrite using ruby code?
+    md5 = `curl -L --silent -I #{src[:url]} | sed -n 's/ETag: "\\(.*\\)"/\\1/p'`.split("\n")[0]
+    md5.strip! unless md5.nil?
+
+    if md5.nil? then
+      p "curl -I failed. runnig md5 on #{r.full_name}"
+      gem_file = Gem::RemoteFetcher.fetcher.download r, src[:url], '/tmp/'
+      hash = `nix-hash --flat --type md5 #{gem_file}`.split("\n")[0].strip
+      h[:sha256] = hash
+    else 
+      h[:md5] = md5
+    end
+    h
+  end)
   src
 end
 
-class Object; def to_nix; self.to_s.to_nix; end; end
+cache_obj = FileCached.new(:filename => $CACHE_FILE_OR_NIL, :use_cache => ! $CACHE_FILE_OR_NIL.nil?)
 
-puts "{build_ruby_package, fix, fetchurl}: fix (rpkgs: {"
-requests.each do |request|
-  # dep = Gem::Dependency.new request.name, request.version
-  # r = Gem::SpecFetcher.fetcher.search_for_dependency dep
-  h = {}
-  h[:src] = NixV.new "fetchurl #{src_from_request(request).to_nix}"
-  h[:name] = request.name
-  h[:version] = request.version
-  h[:dependencies] = request.spec.dependencies.map(&:name)
-  puts "#{request.full_name.to_nix} = build_ruby_package rpkgs #{h.to_nix};"
-  puts "#{request.name.to_nix} = rpkgs.#{request.full_name.to_nix};"
+cache_obj.with do |cache|
+
+  puts "# #{deps.inspect}"
+  puts "{build_ruby_package, fix, fetchurl}: fix (rpkgs: {"
+  requests.each do |request|
+    h = {}
+    h[:src] = NixV.new "fetchurl #{src_from_request(request, cache_obj).to_nix}"
+    h[:name] = request.name
+    h[:version] = request.version
+    h[:dependencies] = request.spec.dependencies.map(&:name)
+    # not using request.full_name because dependency list does not contain full_name
+    puts "#{request.name.to_nix} = build_ruby_package rpkgs #{h.to_nix};"
+  end
+  puts "})"
+
 end
-puts "})"
+

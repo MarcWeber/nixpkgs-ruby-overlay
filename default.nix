@@ -38,14 +38,14 @@ let
     # rubyEnv [ "sup" "hoe" "rails" ];
     # then you can put the libraries in ENV this way:
     # ruby-env-sup /bin/sh
-    rubyEnv = { name, ruby, pkgs_fun }:
+    rubyEnv = { name, ruby, pkgs_fun, tagged ? false}:
         let
           attrs = packages { inherit ruby; patches_by_name = patches_by_name_fun {inherit ruby; }; inherit pkgs_fun; };
         in pkgs.stdenv.mkDerivation {
           name = "ruby-wrapper-${name}";
           buildInputs = 
             let p = builtins.attrValues attrs;
-            in [ruby] ++ p ++ (map tag p);
+            in [ruby] ++ p ++ (pkgs.lib.optionals tagged (map tag p));
           # tagged = px.tagged;
           unpackPhase = ":";
           installPhase = ''
