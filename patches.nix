@@ -33,7 +33,7 @@ let
     . $out/nix-support/setup-hook
   '';
 
-  mysql = pkgs.mysql56; # default in nixos could be aria
+  mysql = pkgs.mysql57; # default in nixos could be aria
 
   in
 
@@ -99,13 +99,13 @@ let
     "ruby-debug-base19" = { buildFlags = [ "--with-ruby-include=${ruby}/src"]; };
 
 
-    mysql.buildInputs = [ mysql pkgs.zlib.out ];
-    mysql2.buildInputs = [ mysql pkgs.zlib.out ];
+    mysql.buildInputs = [ mysql pkgs.zlib.out  pkgs.openssl.out];
+    mysql2.buildInputs = [ mysql pkgs.zlib.out pkgs.openssl.out ];
     mysqlplus = {
-      buildInputs = [ mysql pkgs.zlib.out ];
+      buildInputs = [ mysql pkgs.zlib.out pkgs.openssl.out ];
     };
     do_mysql = {
-      buildInputs = [ mysql pkgs.zlib.out ];
+      buildInputs = [ mysql pkgs.zlib.out pkgs.openssl.out ];
     };
 
     ncurses = { buildInputs = [ pkgs.ncurses.out ]; };
