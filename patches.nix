@@ -196,16 +196,16 @@ let
       ];
     };
 
-    "do_sqlite3" = { buildInputs = [ pkgs.sqlite.out ]; };
+    "do_sqlite3" = { buildInputs = [ pkgs.sqlite.out pkgs.sqlite.dev ]; };
 
     "sqlite3" = {
-      buildInputs = [ pkgs.sqlite.out ];
+      buildInputs = [ pkgs.sqlite.out pkgs.sqlite.dev ];
       buildFlags = [
         "--with-sqlite3-include=${pkgs.sqlite}/include"
         "--with-sqlite3-lib=${pkgs.sqlite.out}/lib"
       ];
     };
-    sqlite3_ruby = { propagatedBuildInputs = [ pkgs.sqlite ]; };
+    sqlite3_ruby = { propagatedBuildInputs = [ pkgs.sqlite.out pkgs.sqlite.dev ]; };
 
     sup = {
       additionalRubyDependencies = ["ncursesw" "xapian-ruby"/*required for building native extension?*/ ];
