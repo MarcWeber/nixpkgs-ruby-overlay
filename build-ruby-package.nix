@@ -40,7 +40,7 @@ rpkgs: pkg:
         ([
           pkg
           {
-            buildInputs = 
+            buildInputs =
               [ruby pkgs.makeWrapper] 
               ++ lib.optional (rubygems != null) rubygems ;
             propagatedBuildInputs =

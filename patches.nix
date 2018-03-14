@@ -108,8 +108,9 @@ let
       buildInputs = [ mysql pkgs.zlib.out pkgs.openssl.out ];
     };
 
-    ncurses = { buildInputs = [ pkgs.ncurses.out ]; };
-    ncursesw = { buildInputs = [ pkgs.ncurses.out ]; };
+    curses =  { buildInputs = [ pkgs.ncurses.dev pkgs.ncurses.out ]; };
+    ncurses =  { buildInputs = [ pkgs.ncurses.dev pkgs.ncurses.out ]; };
+    ncursesw = { buildInputs = [ pkgs.ncurses.dev pkgs.ncurses.out ]; }; 
     "ncursesw-1.4.9" =
     let version ="1.4.9";
         gemspec = pkgs.fetchurl {
@@ -209,7 +210,7 @@ let
 
     sup = {
       additionalRubyDependencies = ["ncursesw" "xapian-ruby"/*required for building native extension?*/ ];
-      buildInputs = [ (pkgs.xapianBindings.override { inherit ruby; }) ];
+      buildInputs = [ (pkgs.xapianBindings.override { inherit ruby; }) pkgs.xapian ];
     };
 
     tarruby = {
@@ -251,17 +252,20 @@ let
 
 
     "xapian-ruby" = {
+
       gemFlags = [ "--no-rdoc" ]; # compiling for ruby1.9 fails with: ERROR:  While executing gem ... (Encoding::UndefinedConversionError) U+2019 from UTF-8 to US-ASCII
       additionalRubyDependencies = [ "rake" "rdoc" ];
-      buildInputs = [ pkgs.zlib.out pkgs.libuuid.out ];
+      buildInputs = [ pkgs.zlib.dev pkgs.zlib.out pkgs.libuuid.dev pkgs.libuuid.out pkgs.rake ];
 
 
-      NIX_POST_EXTRACT_FILES_HOOK = pkgs.writeScript "path-bin" ''
-        #!/bin/sh
-        set -x
-        sed -i "/ENV..LDFLAGS/d" $out/*/*/Rakefile
-        find "$1" -type f -name "*.rb" | xargs sed -i "s@/bin/sed@$(type -p sed)@g"
-      '';
+#       NIX_POST_EXTRACT_FILES_HOOK = pkgs.writeScript "path-bin" ''
+#         #!/bin/sh
+#         set -x
+#         echo 1
+#         sed -i "/ENV..LDFLAGS/d" $out/*/*/Rakefile
+#         echo 2
+#         find "$1" -type f -name "*.rb" | xargs sed -i "s@/bin/sed@$(type -p sed)@g"
+#       '';
     };
     "xapian-full" = {
       gemFlags = [ "--no-rdoc" ]; # compiling for ruby1.9 fails with: ERROR:  While executing gem ... (Encoding::UndefinedConversionError) U+2019 from UTF-8 to US-ASCII
@@ -287,6 +291,10 @@ let
         find "$1" -type f -name "*.rb" | xargs sed -i "s@/bin/sed@$(type -p sed)@g"
       '';
 
+    };
+
+    gpgme = {
+    buildInputs = [ pkgs.gpgme.out  pkgs.gpgme.dev];
     };
 
 }
