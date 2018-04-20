@@ -235,6 +235,18 @@ let
 
     "ruby-debug19" = { buildFlags = [ "--with-ruby-include=${ruby}/src" ]; };
 
+    "public_suffix" = {
+      # it looks like /bin/console is run while compiling, so put it where it should be
+      patchPhase = ''
+        mkdir -p $out/bin
+        cat > $out/bin/console << EOF
+        #!/bin/sh
+        exec $out/gems/public_suffix-3.0.2/bin/console "$@"
+        EOF
+        chmod +x $out/bin/console
+      '';
+    };
+
     "xrefresh-server" =
       let patch = pkgs.fetchurl {
           url = "http://mawercer.de/~nix/xrefresh.diff.gz";
