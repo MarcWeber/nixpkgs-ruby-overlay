@@ -99,6 +99,8 @@ let
     "ruby-debug-base19" = { buildFlags = [ "--with-ruby-include=${ruby}/src"]; };
 
 
+    tiny_tds.buildInputs = [ pkgs.freetds ];
+
     mysql.buildInputs = [ mysql pkgs.zlib.out  pkgs.openssl.out];
     mysql2.buildInputs = [ mysql pkgs.zlib.out pkgs.openssl.out ];
     mysqlplus = {
