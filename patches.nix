@@ -33,7 +33,7 @@ let
     . $out/nix-support/setup-hook
   '';
 
-  mysql = pkgs.mysql57; # default in nixos could be aria
+  mysql = pkgs.mysql55; # default in nixos could be aria
 
   in
 
@@ -43,7 +43,7 @@ let
     ffi = {
       postUnpack = "onetuh";
       additionalRubyDependencies = [ "rake" ];
-      buildInputs = [ pkgs.libffi.out ];
+      buildInputs = [pkgs.libffi.dev pkgs.libffi.out ];
       buildFlags=["--with-ffi-dir=${pkgs.libffi}"];
       NIX_POST_EXTRACT_FILES_HOOK = patchUsrBinEnv;
     };
@@ -101,7 +101,9 @@ let
 
     tiny_tds.buildInputs = [ pkgs.freetds ];
 
+    # not maintained anymore, switch to mysql2, please
     mysql.buildInputs = [ mysql pkgs.zlib.out  pkgs.openssl.out];
+
     mysql2.buildInputs = [ mysql pkgs.zlib.out pkgs.openssl.out ];
     mysqlplus = {
       buildInputs = [ mysql pkgs.zlib.out pkgs.openssl.out ];
@@ -211,7 +213,7 @@ let
     sqlite3_ruby = { propagatedBuildInputs = [ pkgs.sqlite.out pkgs.sqlite.dev ]; };
 
     sup = {
-      additionalRubyDependencies = ["ncursesw" "xapian-ruby"/*required for building native extension?*/ ];
+      additionalRubyDependencies = ["ncursesw" "xapian-full"/*required for building native extension?*/ ];
       buildInputs = [ (pkgs.xapianBindings.override { inherit ruby; }) pkgs.xapian ];
     };
 
