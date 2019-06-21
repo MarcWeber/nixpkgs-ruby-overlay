@@ -40,6 +40,7 @@ let
 {
 
     builder = { gemFlags = "--no-ri --no-rdoc"; };
+
     ffi = {
       postUnpack = "onetuh";
       additionalRubyDependencies = [ "rake" ];
@@ -216,6 +217,15 @@ let
       additionalRubyDependencies = ["ncursesw" "xapian-full"/*required for building native extension?*/ ];
       buildInputs = [ (pkgs.xapianBindings.override { inherit ruby; }) pkgs.xapian ];
     };
+
+    mini_mime.patchPhase = ''
+        mkdir -p $out/bin
+        cat > $out/bin/console << EOF
+        #!/bin/sh
+        exec $(echo $out/gems/mini_mime-1.0.1/bin/console) "$@"
+        EOF
+        chmod +x $out/bin/console
+    '';
 
     tarruby = {
       buildInputs = [ pkgs.libtar.out pkgs.zlib.out ];
