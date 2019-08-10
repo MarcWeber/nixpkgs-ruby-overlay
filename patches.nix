@@ -104,6 +104,7 @@ let
 
     # not maintained anymore, switch to mysql2, please
     mysql.buildInputs = [ mysql pkgs.zlib.out  pkgs.openssl.out];
+    pg.buildInputs = [pkgs.postgresql];
 
     mysql2.buildInputs = [ mysql pkgs.zlib.out pkgs.openssl.out ];
     mysqlplus = {
