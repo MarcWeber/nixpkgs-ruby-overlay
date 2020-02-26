@@ -72,5 +72,5 @@ in {
 
   inherit packages patches_by_name_fun rubyEnv;
   # test = let ruby = pkgs.ruby_2_3; in packages { inherit ruby; patches_by_name = patches_by_name_fun {inherit ruby; }; pkgs_fun = import ./test.nix; };
-  testEnv = rubyEnv { name = "test"; pkgs_fun = import ./collections/test.nix; ruby = pkgs.ruby_2_3; };
+  testEnv = rubyEnv { name = "test"; pkgs_fun = import ./collections/test.nix; ruby = pkgs.ruby_2_7; };
 }

@@ -12,6 +12,8 @@ let
         if [ -n "$THIS_RUBY_LIB" ]; then
           RUBYLIB_HASH["$THIS_RUBY_LIB"]=
         fi
+        RUBYLIB=\''${RUBYLIB-}
+        GEM_PATH=''${GEM_PATH-}
         for path in \''${!RUBYLIB_HASH[@]}; do
           export RUBYLIB=\''${RUBYLIB}\''${RUBYLIB:+:}\$path
         done

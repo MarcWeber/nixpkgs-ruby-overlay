@@ -39,7 +39,9 @@ let
 
 {
 
-    builder = { gemFlags = "--no-ri --no-rdoc"; };
+    builder = { gemFlags = "--no-ri --no-rdoc"; }; # gem now uses -N instead of --no-ri --no-rdoc
+
+    "ntlm-http" = { gemFlags = "-N"; };
 
     ffi = {
       postUnpack = "onetuh";
