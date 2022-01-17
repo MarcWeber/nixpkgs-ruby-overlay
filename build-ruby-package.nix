@@ -84,6 +84,7 @@ rpkgs: pkg:
                 [ -e "$out/bin/$(basename $prog)" ] && continue || true
                 sed -i '1s@.*@#!  ${ruby}/bin/ruby@' "$prog"
                 t="$out/bin/$(basename "$prog")"
+                mkdir -p $out/bin
                 cat >> "$t" << EOF
               #!/bin/sh
               export GEM_PATH=$GEM_PATH:\$GEM_PATH

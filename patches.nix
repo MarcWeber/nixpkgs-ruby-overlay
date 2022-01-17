@@ -33,7 +33,7 @@ let
     . $out/nix-support/setup-hook
   '';
 
-  mysql = pkgs.mysql55; # default in nixos could be aria
+  mysql = pkgs.mysql57; # default in nixos could be aria
 
   in
 
@@ -100,6 +100,7 @@ let
       buildFlags = [ "--with-ruby-include=${ruby}/include"];
     };
     "ruby-debug-base19" = { buildFlags = [ "--with-ruby-include=${ruby}/src"]; };
+    "ruby-debug-ide" = { buildFlags = [ "--with-ruby-include=${ruby}/src"]; };
 
 
     tiny_tds.buildInputs = [ pkgs.freetds ];
