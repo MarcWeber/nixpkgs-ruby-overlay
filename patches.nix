@@ -33,7 +33,7 @@ let
     . $out/nix-support/setup-hook
   '';
 
-  mysql = pkgs.mysql57; # default in nixos could be aria
+  mysql = pkgs.mysql80; # default in nixos could be aria
 
   in
 
@@ -109,7 +109,7 @@ let
     mysql.buildInputs = [ mysql pkgs.zlib.out  pkgs.openssl.out];
     pg.buildInputs = [pkgs.postgresql];
 
-    mysql2.buildInputs = [ mysql pkgs.zlib.out pkgs.openssl.out ];
+    mysql2.buildInputs = [ mysql pkgs.zlib.out pkgs.zstd.out pkgs.openssl.out ];
     mysqlplus = {
       buildInputs = [ mysql pkgs.zlib.out pkgs.openssl.out ];
     };

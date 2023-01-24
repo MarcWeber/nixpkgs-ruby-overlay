@@ -186,6 +186,8 @@ end
 
 $CACHE_FILE_OR_NIL = ENV['HOME']+"/.nix2ruby-resolve-deps"
 
+$RUBY_VERSION = "ruby_2_7";
+
 cache_obj = FileCached.new(:filename => nil, :use_cache => false)
 
 i = 0
@@ -196,6 +198,8 @@ while i < ARGV.length
   end
   v = arg.call
   case v
+  when '--ruby-version'
+    $RUBY_VERSION = arg.call
   when '--cache-file'
     cache_obj = FileCached.new(:filename => arg.call, :use_cache => true)
   when '--json-deps-arg'

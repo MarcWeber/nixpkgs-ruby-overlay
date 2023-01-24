@@ -73,6 +73,9 @@ rpkgs: pkg:
                      --prefix RUBYLIB : "$RUBYLIB"${ if rubygems == null then "" else ":${rubygems}/lib" } \
                      --prefix GEM_PATH : "$GEM_PATH" \
                      --set RUBYOPT 'rubygems'
+
+                     # eg solagraph doesn't find backport with activate_bin_path
+                    sed -i 's/Gem.activate_bin_path/Gem.bin_path/' $hidden
                 fi
               done
 
