@@ -18,6 +18,7 @@ $PATCHES = {
   'nokogiri'       => ['mini_portile2'],
   'sup'            => ['xapian-ruby'],
   'xapian-ruby'    => ['rake'],
+  'solargraph'     => ['rubocop', 'rest-client'],
 }
 
 def patch(v)
@@ -69,7 +70,7 @@ def run(cache_obj, v, output_style)
     lines << "
       ( rubyEnv {
         name = \"#{v.fetch(:name)}\";
-        ruby = pkgs.ruby_2_7;
+        ruby = pkgs.#{$RUBY_VERSION};
 
         pkgs_fun =
         #{pkg_lines.join("\n")};
@@ -209,7 +210,7 @@ while i < ARGV.length
   when '--json-deps-file'
     deps = JSON.parse(File.open(arg.call).read, {:symbolize_names => true})
     patch(deps)
-    puts deps.inspect
+    puts '#'+deps.inspect
     puts run(cache_obj, deps, :env).join("\n")
   end
 end

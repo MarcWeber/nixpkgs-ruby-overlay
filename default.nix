@@ -49,6 +49,7 @@ let
           # tagged = px.tagged;
           unpackPhase = ":";
           installPhase = ''
+            set -x
             mkdir -p $out/bin
             b=$out/bin/ruby-env-${name}
             cat >> $b << EOF

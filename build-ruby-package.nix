@@ -13,7 +13,7 @@ let
           RUBYLIB_HASH["$THIS_RUBY_LIB"]=
         fi
         RUBYLIB=\''${RUBYLIB-}
-        GEM_PATH=''${GEM_PATH-}
+        GEM_PATH=\''${GEM_PATH-}
         for path in \''${!RUBYLIB_HASH[@]}; do
           export RUBYLIB=\''${RUBYLIB}\''${RUBYLIB:+:}\$path
         done
@@ -75,7 +75,8 @@ rpkgs: pkg:
                      --set RUBYOPT 'rubygems'
 
                      # eg solagraph doesn't find backport with activate_bin_path
-                    sed -i 's/Gem.activate_bin_path/Gem.bin_path/' $hidden
+                     # maybe the GEM_PATH was the issue and we do no longer need this
+                     # sed -i 's/Gem.activate_bin_path/Gem.bin_path/' $hidden
                 fi
               done
 
