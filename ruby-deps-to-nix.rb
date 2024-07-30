@@ -170,7 +170,16 @@ end
 def src_from_request(r, cache_obj)
   src = {}
   # r.name was r.full_name but caused errors
-  src[:url] = "http://production.cf.rubygems.org/gems/#{r.name}-#{r.version}.gem"
+  src[:url] = case r.name
+  when /sorbet-static/; 
+    # HACK HOW TO FIX ?
+      "https://rubygems.org/downloads/#{r.name}-#{r.version}-x86_64-linux.gem"
+      # https://rubygems.org/downloads/sorbet-static-0.5.11495-x86_64-linux.gem
+  else "http://production.cf.rubygems.org/gems/#{r.name}-#{r.version}.gem"
+  end
+
+  puts src[:url]
+  # src[:url] = 
   src.merge! (cache_obj.get("src_hash", src[:url]) do
     # returns {md5 => or sha256 => }
     h = {}
